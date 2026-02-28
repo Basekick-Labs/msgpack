@@ -1,7 +1,6 @@
 package msgpack
 
 import (
-	"bytes"
 	"io"
 	"reflect"
 	"sync"
@@ -26,16 +25,18 @@ type writer interface {
 
 type byteWriter struct {
 	io.Writer
+	scratch [1]byte
 }
 
-func newByteWriter(w io.Writer) byteWriter {
-	return byteWriter{
+func newByteWriter(w io.Writer) *byteWriter {
+	return &byteWriter{
 		Writer: w,
 	}
 }
 
-func (bw byteWriter) WriteByte(c byte) error {
-	_, err := bw.Write([]byte{c})
+func (bw *byteWriter) WriteByte(c byte) error {
+	bw.scratch[0] = c
+	_, err := bw.Write(bw.scratch[:])
 	return err
 }
 
@@ -53,29 +54,38 @@ func GetEncoder() *Encoder {
 
 func PutEncoder(enc *Encoder) {
 	enc.w = nil
+	// Keep wbuf capacity for reuse, but drop oversized buffers.
+	if cap(enc.wbuf) > 32*1024 {
+		enc.wbuf = nil
+	}
 	encPool.Put(enc)
 }
 
 // Marshal returns the MessagePack encoding of v.
 func Marshal(v interface{}) ([]byte, error) {
 	enc := GetEncoder()
-
-	var buf bytes.Buffer
-	enc.Reset(&buf)
+	enc.resetForMarshal()
 
 	err := enc.Encode(v)
-	b := buf.Bytes()
+
+	var b []byte
+	if err == nil {
+		b = make([]byte, len(enc.wbuf))
+		copy(b, enc.wbuf)
+	}
 
 	PutEncoder(enc)
 
 	if err != nil {
 		return nil, err
 	}
-	return b, err
+	return b, nil
 }
 
 type Encoder struct {
 	w         writer
+	bsw       byteSliceWriter // embedded writer for Marshal() path
+	wbuf      []byte          // reusable output buffer for Marshal()
 	dict      map[string]int
 	structTag string
 	buf       []byte
@@ -127,6 +137,17 @@ func (e *Encoder) ResetWriter(w io.Writer) {
 	} else {
 		e.w = newByteWriter(w)
 	}
+}
+
+// resetForMarshal sets up the encoder to write into the embedded wbuf,
+// avoiding bytes.Buffer allocation. Used exclusively by Marshal().
+func (e *Encoder) resetForMarshal() {
+	e.wbuf = e.wbuf[:0]
+	e.bsw.buf = &e.wbuf
+	e.w = &e.bsw
+	e.flags = 0
+	e.structTag = ""
+	e.dict = nil
 }
 
 // SetSortMapKeys causes the Encoder to encode map keys in increasing order.
@@ -222,8 +243,30 @@ func (e *Encoder) Encode(v interface{}) error {
 		return e.encodeInt64Cond(int64(v))
 	case time.Time:
 		return e.EncodeTime(v)
+	case map[string]interface{}:
+		if e.flags&sortMapKeysFlag != 0 {
+			return e.EncodeMapSorted(v)
+		}
+		return e.EncodeMap(v)
+	case []interface{}:
+		return e.encodeInterfaceSlice(v)
 	}
 	return e.EncodeValue(reflect.ValueOf(v))
+}
+
+func (e *Encoder) encodeInterfaceSlice(s []interface{}) error {
+	if s == nil {
+		return e.EncodeNil()
+	}
+	if err := e.EncodeArrayLen(len(s)); err != nil {
+		return err
+	}
+	for _, v := range s {
+		if err := e.Encode(v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (e *Encoder) EncodeMulti(v ...interface{}) error {
