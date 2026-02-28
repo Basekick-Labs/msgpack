@@ -1,3 +1,29 @@
+## v6 (Basekick-Labs fork)
+
+### Performance
+
+- **decode:** zero-allocation byte-slice reader for `Unmarshal()` — replaces `bytes.NewReader` + `bufio.NewReader` with a direct `byteSliceReader`, eliminating 2 allocations per call (~21% faster decode, ~50% less memory)
+- **decode:** `*interface{}` fast path in `Decode()` — skips `reflect.ValueOf` for the most common `Unmarshal(b, &interface{})` pattern (~14% faster)
+- **encode:** pooled byte buffer in `Marshal()` — replaces per-call `bytes.Buffer` with a reusable `[]byte` embedded in the pooled `Encoder` struct
+- **encode:** `byteSliceWriter` for `Marshal()` path — native `WriteByte` implementation eliminates per-byte heap allocation
+- **encode:** `byteWriter.WriteByte` scratch fix for streaming path — uses `[1]byte` scratch instead of allocating `[]byte{c}`
+- **encode:** `Encode()` fast paths for `map[string]interface{}` and `[]interface{}` — bypasses `reflect.ValueOf` + sync.Map encoder lookup
+
+### Bug Fixes
+
+- **decode:** cap `decodeSlice()` allocation at `sliceAllocLimit` (1M) to prevent OOM from malicious payloads ([#1](https://github.com/Basekick-Labs/msgpack/issues/1))
+- **decode:** cap `DecodeMap()` allocation at `maxMapSize` (1M) — same OOM vector for `map[string]interface{}` path
+- **decode:** fix `disableAllocLimitFlag` check in `decodeSliceValue` — `!= 1` was always true because the flag value is `1 << 3 = 8`, so the alloc limit in `growSliceValue()` was never applied
+- **decode:** fix error message in `DecodeFloat64` — said "decoding float32" instead of "decoding float64" ([#13](https://github.com/Basekick-Labs/msgpack/issues/13))
+
+### Chores
+
+- Modernize GitHub Actions (checkout@v4, setup-go@v5)
+- Go version matrix: 1.25.x, 1.26.x
+- Bump `go.mod` to Go 1.26
+
+---
+
 ## [5.4.1](https://github.com/vmihailenco/msgpack/compare/v5.4.0...v5.4.1) (2023-10-26)
 
 

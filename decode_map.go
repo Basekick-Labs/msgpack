@@ -157,7 +157,12 @@ func (d *Decoder) DecodeMap() (map[string]interface{}, error) {
 		return nil, nil
 	}
 
-	m := make(map[string]interface{}, n)
+	ln := n
+	if d.flags&disableAllocLimitFlag == 0 && ln > maxMapSize {
+		ln = maxMapSize
+	}
+
+	m := make(map[string]interface{}, ln)
 
 	for i := 0; i < n; i++ {
 		mk, err := d.DecodeString()
