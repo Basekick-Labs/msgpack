@@ -289,6 +289,33 @@ var encoderTests = []encoderTest{
 	{&Intern{A: "foo", B: "foo", C: "foo"}, "83a141a3666f6fa142d48000a143d48000"},
 }
 
+// Issue #3: types with pointer receivers should encode even when non-addressable.
+type PtrRecvMarshaler uint16
+
+func (p *PtrRecvMarshaler) MarshalMsgpack() ([]byte, error) {
+	return msgpack.Marshal(uint16(*p))
+}
+
+func (p *PtrRecvMarshaler) UnmarshalMsgpack(b []byte) error {
+	var n uint16
+	if err := msgpack.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	*p = PtrRecvMarshaler(n)
+	return nil
+}
+
+func TestEncodeNonAddressablePtrReceiver(t *testing.T) {
+	// Encoding a non-pointer value whose pointer type implements Marshaler.
+	v := PtrRecvMarshaler(42)
+	b, err := msgpack.Marshal(v)
+	require.NoError(t, err)
+
+	var out PtrRecvMarshaler
+	require.NoError(t, msgpack.Unmarshal(b, &out))
+	require.Equal(t, v, out)
+}
+
 func TestEncoder(t *testing.T) {
 	var buf bytes.Buffer
 	enc := msgpack.NewEncoder(&buf)

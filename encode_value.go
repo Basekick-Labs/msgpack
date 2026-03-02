@@ -132,11 +132,21 @@ func ptrEncoderFunc(typ reflect.Type) encoderFunc {
 	}
 }
 
-func encodeCustomValuePtr(e *Encoder, v reflect.Value) error {
-	if !v.CanAddr() {
-		return fmt.Errorf("msgpack: Encode(non-addressable %T)", v.Interface())
+// ensureAddr returns v.Addr() if v is addressable, otherwise it allocates
+// a new value, copies v into it, and returns the pointer. This allows
+// types with pointer receivers to encode even when the source is not
+// addressable (e.g. map values, bare literals).
+func ensureAddr(v reflect.Value) reflect.Value {
+	if v.CanAddr() {
+		return v.Addr()
 	}
-	encoder := v.Addr().Interface().(CustomEncoder)
+	ptr := reflect.New(v.Type())
+	ptr.Elem().Set(v)
+	return ptr
+}
+
+func encodeCustomValuePtr(e *Encoder, v reflect.Value) error {
+	encoder := ensureAddr(v).Interface().(CustomEncoder)
 	return encoder.EncodeMsgpack(e)
 }
 
@@ -150,10 +160,7 @@ func encodeCustomValue(e *Encoder, v reflect.Value) error {
 }
 
 func marshalValuePtr(e *Encoder, v reflect.Value) error {
-	if !v.CanAddr() {
-		return fmt.Errorf("msgpack: Encode(non-addressable %T)", v.Interface())
-	}
-	return marshalValue(e, v.Addr())
+	return marshalValue(e, ensureAddr(v))
 }
 
 func marshalValue(e *Encoder, v reflect.Value) error {
@@ -210,10 +217,7 @@ func nilableType(t reflect.Type) bool {
 //------------------------------------------------------------------------------
 
 func marshalBinaryValueAddr(e *Encoder, v reflect.Value) error {
-	if !v.CanAddr() {
-		return fmt.Errorf("msgpack: Encode(non-addressable %T)", v.Interface())
-	}
-	return marshalBinaryValue(e, v.Addr())
+	return marshalBinaryValue(e, ensureAddr(v))
 }
 
 func marshalBinaryValue(e *Encoder, v reflect.Value) error {
@@ -233,10 +237,7 @@ func marshalBinaryValue(e *Encoder, v reflect.Value) error {
 //------------------------------------------------------------------------------
 
 func marshalTextValueAddr(e *Encoder, v reflect.Value) error {
-	if !v.CanAddr() {
-		return fmt.Errorf("msgpack: Encode(non-addressable %T)", v.Interface())
-	}
-	return marshalTextValue(e, v.Addr())
+	return marshalTextValue(e, ensureAddr(v))
 }
 
 func marshalTextValue(e *Encoder, v reflect.Value) error {
