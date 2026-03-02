@@ -52,7 +52,27 @@ func (d *Decoder) decodeMapDefault() (interface{}, error) {
 	if d.mapDecoder != nil {
 		return d.mapDecoder(d)
 	}
-	return d.DecodeMap()
+
+	n, err := d.DecodeMapLen()
+	if err != nil {
+		return nil, err
+	}
+	if n == -1 {
+		return nil, nil
+	}
+	if n == 0 {
+		return make(map[string]interface{}), nil
+	}
+
+	code, err := d.PeekCode()
+	if err != nil {
+		return nil, err
+	}
+
+	if msgpcode.IsString(code) {
+		return d.decodeMapStringInterfaceN(n)
+	}
+	return d.decodeTypedMapN(n)
 }
 
 // DecodeMapLen decodes map length. Length is -1 when map is nil.
@@ -152,12 +172,19 @@ func (d *Decoder) DecodeMap() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if n == -1 {
 		return nil, nil
 	}
+	return d.decodeMapStringInterfaceN(n)
+}
 
-	m := make(map[string]interface{}, n)
+func (d *Decoder) decodeMapStringInterfaceN(n int) (map[string]interface{}, error) {
+	ln := n
+	if d.flags&disableAllocLimitFlag == 0 && ln > maxMapSize {
+		ln = maxMapSize
+	}
+
+	m := make(map[string]interface{}, ln)
 
 	for i := 0; i < n; i++ {
 		mk, err := d.DecodeString()
@@ -213,7 +240,10 @@ func (d *Decoder) DecodeTypedMap() (interface{}, error) {
 	if n <= 0 {
 		return nil, nil
 	}
+	return d.decodeTypedMapN(n)
+}
 
+func (d *Decoder) decodeTypedMapN(n int) (interface{}, error) {
 	key, err := d.decodeInterfaceCond()
 	if err != nil {
 		return nil, err

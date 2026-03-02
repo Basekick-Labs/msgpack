@@ -2,7 +2,6 @@ package msgpack
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -46,6 +45,10 @@ func GetDecoder() *Decoder {
 func PutDecoder(dec *Decoder) {
 	dec.r = nil
 	dec.s = nil
+	dec.bsr.data = nil
+	if dec.buf != nil {
+		dec.buf = dec.buf[:0]
+	}
 	decPool.Put(dec)
 }
 
@@ -56,7 +59,7 @@ func PutDecoder(dec *Decoder) {
 func Unmarshal(data []byte, v interface{}) error {
 	dec := GetDecoder()
 	dec.UsePreallocateValues(true)
-	dec.Reset(bytes.NewReader(data))
+	dec.ResetBytes(data)
 	err := dec.Decode(v)
 
 	PutDecoder(dec)
@@ -68,6 +71,7 @@ func Unmarshal(data []byte, v interface{}) error {
 type Decoder struct {
 	r          io.Reader
 	s          io.ByteScanner
+	bsr        byteSliceReader
 	mapDecoder func(*Decoder) (interface{}, error)
 	structTag  string
 	buf        []byte
@@ -124,6 +128,19 @@ func (d *Decoder) ResetReader(r io.Reader) {
 		d.r = br
 		d.s = br
 	}
+}
+
+// ResetBytes is like Reset but optimized for decoding from a byte slice.
+// It avoids allocating bytes.NewReader and bufio.NewReader by using an
+// embedded byte-slice reader with zero-copy sub-slicing.
+func (d *Decoder) ResetBytes(data []byte) {
+	d.bsr.reset(data)
+	d.r = &d.bsr
+	d.s = &d.bsr
+	d.mapDecoder = nil
+	d.flags = 0
+	d.structTag = ""
+	d.dict = nil
 }
 
 func (d *Decoder) SetMapDecoder(fn func(*Decoder) (interface{}, error)) {
@@ -194,6 +211,11 @@ func (d *Decoder) Buffered() io.Reader {
 func (d *Decoder) Decode(v interface{}) error {
 	var err error
 	switch v := v.(type) {
+	case *interface{}:
+		if v != nil && *v == nil {
+			*v, err = d.decodeInterfaceCond()
+			return err
+		}
 	case *string:
 		if v != nil {
 			*v, err = d.DecodeString()
@@ -625,6 +647,19 @@ func (d *Decoder) readFull(b []byte) error {
 }
 
 func (d *Decoder) readN(n int) ([]byte, error) {
+	// Fast path: byte-slice reader — zero-copy sub-slice of input buffer.
+	if d.bsr.data != nil {
+		if d.bsr.pos+n > len(d.bsr.data) {
+			return nil, io.ErrUnexpectedEOF
+		}
+		b := d.bsr.data[d.bsr.pos : d.bsr.pos+n]
+		d.bsr.pos += n
+		if d.rec != nil {
+			d.rec = append(d.rec, b...)
+		}
+		return b, nil
+	}
+
 	var err error
 	if d.flags&disableAllocLimitFlag != 0 {
 		d.buf, err = readN(d.r, d.buf, n)
@@ -635,7 +670,6 @@ func (d *Decoder) readN(n int) ([]byte, error) {
 		return nil, err
 	}
 	if d.rec != nil {
-		// TODO: read directly into d.rec?
 		d.rec = append(d.rec, d.buf...)
 	}
 	return d.buf, nil

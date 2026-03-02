@@ -171,12 +171,22 @@ func (d *Decoder) DecodeFloat32() (float32, error) {
 }
 
 func (d *Decoder) float32(c byte) (float32, error) {
-	if c == msgpcode.Float {
+	switch c {
+	case msgpcode.Float:
 		n, err := d.uint32()
 		if err != nil {
 			return 0, err
 		}
 		return math.Float32frombits(n), nil
+	case msgpcode.Double:
+		n, err := d.float64(c)
+		if err != nil {
+			return 0, err
+		}
+		if n > math.MaxFloat32 || n < -math.MaxFloat32 {
+			return 0, fmt.Errorf("msgpack: float64 %v overflows float32", n)
+		}
+		return float32(n), nil
 	}
 
 	n, err := d.int(c)
@@ -213,7 +223,7 @@ func (d *Decoder) float64(c byte) (float64, error) {
 
 	n, err := d.int(c)
 	if err != nil {
-		return 0, fmt.Errorf("msgpack: invalid code=%x decoding float32", c)
+		return 0, fmt.Errorf("msgpack: invalid code=%x decoding float64", c)
 	}
 	return float64(n), nil
 }

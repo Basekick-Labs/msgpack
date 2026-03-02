@@ -1,19 +1,33 @@
 # MessagePack encoding for Golang
 
-[![Build Status](https://travis-ci.org/vmihailenco/msgpack.svg)](https://travis-ci.org/vmihailenco/msgpack)
+[![Build Status](https://github.com/Basekick-Labs/msgpack/actions/workflows/build.yml/badge.svg?branch=v6)](https://github.com/Basekick-Labs/msgpack/actions/workflows/build.yml)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/vmihailenco/msgpack/v5)](https://pkg.go.dev/github.com/vmihailenco/msgpack/v5)
-[![Documentation](https://img.shields.io/badge/msgpack-documentation-informational)](https://msgpack.uptrace.dev/)
-[![Chat](https://discordapp.com/api/guilds/752070105847955518/widget.png)](https://discord.gg/rWtp5Aj)
+[![Discord](https://img.shields.io/badge/discord-chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nxnWfUxsdm)
 
-> msgpack is brought to you by :star: [**uptrace/uptrace**](https://github.com/uptrace/uptrace).
-> Uptrace is an [open source APM](https://uptrace.dev/get/open-source-apm.html) and blazingly fast
-> [distributed tracing tool](https://get.uptrace.dev/compare/distributed-tracing-tools.html) powered
-> by OpenTelemetry and ClickHouse. Give it a star as well!
+> A performance-optimized fork of [vmihailenco/msgpack/v5](https://github.com/vmihailenco/msgpack),
+> maintained by [Basekick Labs](https://github.com/Basekick-Labs). Built for
+> [Arc](https://github.com/Basekick-Labs/arc), a high-performance time-series database.
+> The upstream module path is preserved for drop-in compatibility.
+
+## What's New in v6
+
+**Decode** — ~21% faster, ~50% less memory:
+- Zero-allocation byte-slice reader for `Unmarshal()`
+- `*interface{}` fast path bypasses reflect for the most common decode pattern
+
+**Encode** — ~12% faster, ~43% fewer allocations:
+- Pooled byte buffer in `Marshal()` eliminates per-call `bytes.Buffer`
+- Native `WriteByte` on the Marshal path removes per-byte heap allocations
+- Type-switch fast paths for `map[string]interface{}` and `[]interface{}`
+
+**Security:**
+- OOM protection: slice and map allocations from untrusted input are capped at 1M elements
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ## Resources
 
-- [Documentation](https://msgpack.uptrace.dev)
-- [Chat](https://discord.gg/rWtp5Aj)
+- [Discord](https://discord.gg/nxnWfUxsdm)
 - [Reference](https://pkg.go.dev/github.com/vmihailenco/msgpack/v5)
 - [Examples](https://pkg.go.dev/github.com/vmihailenco/msgpack/v5#pkg-examples)
 
@@ -53,7 +67,7 @@ msgpack supports 2 last Go versions and requires support for
 go mod init github.com/my/repo
 ```
 
-And then install msgpack/v5 (note _v5_ in the import; omitting it is a popular mistake):
+And then install msgpack (the module path is unchanged from upstream for drop-in compatibility):
 
 ```shell
 go get github.com/vmihailenco/msgpack/v5
@@ -84,17 +98,10 @@ func ExampleMarshal() {
 }
 ```
 
-## See also
-
-- [Golang ORM](https://github.com/uptrace/bun) for PostgreSQL, MySQL, MSSQL, and SQLite
-- [Golang PostgreSQL](https://bun.uptrace.dev/postgres/)
-- [Golang HTTP router](https://github.com/uptrace/bunrouter)
-- [Golang ClickHouse ORM](https://github.com/uptrace/go-clickhouse)
-
 ## Contributors
 
 Thanks to all the people who already contributed!
 
-<a href="https://github.com/vmihailenco/msgpack/graphs/contributors">
-  <img src="https://contributors-img.web.app/image?repo=vmihailenco/msgpack" />
+<a href="https://github.com/Basekick-Labs/msgpack/graphs/contributors">
+  <img src="https://contributors-img.web.app/image?repo=Basekick-Labs/msgpack" />
 </a>

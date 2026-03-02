@@ -182,7 +182,15 @@ func decodeInterfaceValue(d *Decoder, v reflect.Value) error {
 	if v.IsNil() {
 		return d.interfaceValue(v)
 	}
-	return d.DecodeValue(v.Elem())
+
+	elem := v.Elem()
+	if elem.Kind() == reflect.Ptr {
+		return d.DecodeValue(elem)
+	}
+
+	// Non-pointer values inside interfaces are not addressable.
+	// Decode a fresh value instead.
+	return d.interfaceValue(v)
 }
 
 func (d *Decoder) interfaceValue(v reflect.Value) error {
