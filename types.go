@@ -338,7 +338,19 @@ func (e *Encoder) isEmptyValue(v reflect.Value) bool {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
 		return v.Len() == 0
 	case reflect.Struct:
-		structFields := structs.Fields(v.Type(), e.structTag)
+		// Check unexported fields first — if any are non-zero the struct
+		// is not empty, even if all exported fields would be omitted.
+		typ := v.Type()
+		for i := 0; i < typ.NumField(); i++ {
+			sf := typ.Field(i)
+			if sf.PkgPath == "" || sf.Anonymous {
+				continue // exported or embedded — handled below
+			}
+			if !v.Field(i).IsZero() {
+				return false
+			}
+		}
+		structFields := structs.Fields(typ, e.structTag)
 		fields := structFields.OmitEmpty(e, v)
 		return len(fields) == 0
 	case reflect.Bool:

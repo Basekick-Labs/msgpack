@@ -1253,3 +1253,36 @@ func mustParseTime(format, s string) time.Time {
 	}
 	return tm
 }
+
+// Issue #6: omitempty should not omit structs with non-zero unexported fields.
+type structWithUnexported struct {
+	secret int
+	Pub    string `msgpack:",omitempty"`
+}
+
+type wrapperOmitEmpty struct {
+	Inner structWithUnexported `msgpack:",omitempty"`
+}
+
+func TestOmitEmptyUnexportedFields(t *testing.T) {
+	// Inner has a non-zero unexported field, so it must NOT be omitted.
+	w := wrapperOmitEmpty{Inner: structWithUnexported{secret: 42}}
+	b, err := msgpack.Marshal(w)
+	require.NoError(t, err)
+
+	var out map[string]interface{}
+	require.NoError(t, msgpack.Unmarshal(b, &out))
+	// "Inner" key must be present because the struct is not empty.
+	_, ok := out["Inner"]
+	require.True(t, ok, "Inner with non-zero unexported field should not be omitted")
+
+	// When both unexported and exported fields are zero, it should be omitted.
+	w2 := wrapperOmitEmpty{Inner: structWithUnexported{}}
+	b2, err := msgpack.Marshal(w2)
+	require.NoError(t, err)
+
+	var out2 map[string]interface{}
+	require.NoError(t, msgpack.Unmarshal(b2, &out2))
+	_, ok = out2["Inner"]
+	require.False(t, ok, "Inner with all zero fields should be omitted")
+}
