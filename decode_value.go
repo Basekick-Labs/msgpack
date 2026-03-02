@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+
+	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
 
 var (
@@ -71,6 +73,9 @@ func _getDecoder(typ reflect.Type) decoderFunc {
 		return nilAwareDecoder(typ, unmarshalValue)
 	}
 	if typ.Implements(binaryUnmarshalerType) {
+		if typ.Implements(textUnmarshalerType) {
+			return nilAwareDecoder(typ, unmarshalBinaryOrTextValue)
+		}
 		return nilAwareDecoder(typ, unmarshalBinaryValue)
 	}
 	if typ.Implements(textUnmarshalerType) {
@@ -87,6 +92,9 @@ func _getDecoder(typ reflect.Type) decoderFunc {
 			return addrDecoder(nilAwareDecoder(typ, unmarshalValue))
 		}
 		if ptr.Implements(binaryUnmarshalerType) {
+			if ptr.Implements(textUnmarshalerType) {
+				return addrDecoder(nilAwareDecoder(typ, unmarshalBinaryOrTextValue))
+			}
 			return addrDecoder(nilAwareDecoder(typ, unmarshalBinaryValue))
 		}
 		if ptr.Implements(textUnmarshalerType) {
@@ -236,6 +244,20 @@ func unmarshalValue(d *Decoder, v reflect.Value) error {
 
 	unmarshaler := v.Interface().(Unmarshaler)
 	return unmarshaler.UnmarshalMsgpack(b)
+}
+
+// unmarshalBinaryOrTextValue peeks at the wire format to choose between
+// BinaryUnmarshaler (bin) and TextUnmarshaler (str). Used when a type
+// implements both interfaces.
+func unmarshalBinaryOrTextValue(d *Decoder, v reflect.Value) error {
+	c, err := d.PeekCode()
+	if err != nil {
+		return err
+	}
+	if msgpcode.IsString(c) {
+		return unmarshalTextValue(d, v)
+	}
+	return unmarshalBinaryValue(d, v)
 }
 
 func unmarshalBinaryValue(d *Decoder, v reflect.Value) error {

@@ -1294,6 +1294,40 @@ func TestPoolReleasesOversizedBuffers(t *testing.T) {
 	require.Equal(t, "small", s)
 }
 
+// Issue #10: types implementing both TextUnmarshaler and BinaryUnmarshaler
+// should use TextUnmarshaler when wire format is str.
+type dualUnmarshaler struct {
+	text   string
+	binary []byte
+}
+
+func (d *dualUnmarshaler) MarshalText() ([]byte, error)           { return []byte(d.text), nil }
+func (d *dualUnmarshaler) UnmarshalText(b []byte) error           { d.text = string(b); return nil }
+func (d *dualUnmarshaler) MarshalBinary() ([]byte, error)         { return d.binary, nil }
+func (d *dualUnmarshaler) UnmarshalBinary(b []byte) error         { d.binary = b; return nil }
+
+func TestTextUnmarshalerWithStrFormat(t *testing.T) {
+	// Encode a plain string (str format) and decode into a type that
+	// implements both BinaryUnmarshaler and TextUnmarshaler.
+	b, err := msgpack.Marshal("hello")
+	require.NoError(t, err)
+
+	var du dualUnmarshaler
+	require.NoError(t, msgpack.Unmarshal(b, &du))
+	// Should have used TextUnmarshaler because the wire format is str.
+	require.Equal(t, "hello", du.text)
+	require.Nil(t, du.binary)
+
+	// Encode as binary (bin format) and decode — should use BinaryUnmarshaler.
+	b, err = msgpack.Marshal([]byte{0xDE, 0xAD})
+	require.NoError(t, err)
+
+	var du2 dualUnmarshaler
+	require.NoError(t, msgpack.Unmarshal(b, &du2))
+	require.Equal(t, []byte{0xDE, 0xAD}, du2.binary)
+	require.Equal(t, "", du2.text)
+}
+
 func mustParseTime(format, s string) time.Time {
 	tm, err := time.Parse(format, s)
 	if err != nil {
