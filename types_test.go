@@ -1013,6 +1013,21 @@ func TestInt64(t *testing.T) {
 	}
 }
 
+func TestDecodeFloat32FromFloat64(t *testing.T) {
+	// Issue #12: float32 decode should accept Double code with narrowing.
+	b, err := msgpack.Marshal(float64(3.14))
+	require.NoError(t, err)
+
+	var f float32
+	require.NoError(t, msgpack.Unmarshal(b, &f))
+	require.InDelta(t, float32(3.14), f, 0.001)
+
+	// Overflow should error.
+	b, err = msgpack.Marshal(math.MaxFloat64)
+	require.NoError(t, err)
+	require.Error(t, msgpack.Unmarshal(b, &f))
+}
+
 func TestFloat32(t *testing.T) {
 	tests := []struct {
 		in     float32
