@@ -20,12 +20,20 @@
 - **encode:** handle non-addressable values with pointer receivers — `ensureAddr` creates an addressable copy instead of returning an error ([#3](https://github.com/Basekick-Labs/msgpack/issues/3))
 - **encode:** prevent panic when marshalling `reflect.Value` — unwraps and encodes the underlying value ([#15](https://github.com/Basekick-Labs/msgpack/issues/15))
 - **encode:** preserve custom error types instead of reducing to plain strings via `.Error()` ([#22](https://github.com/Basekick-Labs/msgpack/issues/22))
+- **decode:** support non-string map keys when decoding into `interface{}` ([#21](https://github.com/Basekick-Labs/msgpack/issues/21))
+- **decode:** handle unaddressable values in interface decode ([#21](https://github.com/Basekick-Labs/msgpack/issues/21))
+- **encode:** respect non-zero unexported fields in `omitempty` struct emptiness check ([#6](https://github.com/Basekick-Labs/msgpack/issues/6))
+- **decode:** use `interface{}` value type for non-string-keyed typed maps to support heterogeneous nested maps ([#20](https://github.com/Basekick-Labs/msgpack/issues/20))
+- **pool:** drop oversized decoder buffers (>32KB) to prevent memory leak from large decode operations ([#19](https://github.com/Basekick-Labs/msgpack/issues/19))
+- **decode:** choose `TextUnmarshaler` over `BinaryUnmarshaler` when wire format is `str` ([#10](https://github.com/Basekick-Labs/msgpack/issues/10))
 
 ### Chores
 
 - Modernize GitHub Actions (checkout@v4, setup-go@v5)
 - Go version matrix: 1.25.x, 1.26.x
 - Bump `go.mod` to Go 1.26
+- CI: add `-count=1 -timeout=5m` and `GOGC=50` to race tests to prevent OOM on runners ([#33](https://github.com/Basekick-Labs/msgpack/issues/33))
+- CI: change cross-platform step from `go test` to `go vet` (compile-only)
 
 ---
 
