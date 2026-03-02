@@ -255,13 +255,14 @@ func (d *Decoder) decodeTypedMapN(n int) (interface{}, error) {
 	}
 
 	keyType := reflect.TypeOf(key)
-	valueType := reflect.TypeOf(value)
 
 	if !keyType.Comparable() {
 		return nil, fmt.Errorf("msgpack: unsupported map key: %s", keyType.String())
 	}
 
-	mapType := reflect.MapOf(keyType, valueType)
+	// Use interface{} as the value type so heterogeneous values (e.g.
+	// nested maps with different inner types) decode without type errors.
+	mapType := reflect.MapOf(keyType, interfaceType)
 
 	ln := n
 	if d.flags&disableAllocLimitFlag == 0 {

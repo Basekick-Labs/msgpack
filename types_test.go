@@ -1246,6 +1246,31 @@ func TestFloat64(t *testing.T) {
 	}
 }
 
+func TestNestedMapIntegerKeys(t *testing.T) {
+	// Issue #20: nested maps with integer keys should round-trip through interface{}.
+	m := map[int]map[int]interface{}{
+		1: {10: "hello", 20: 42},
+	}
+	b, err := msgpack.Marshal(m)
+	require.NoError(t, err)
+
+	var out interface{}
+	require.NoError(t, msgpack.Unmarshal(b, &out))
+	require.NotNil(t, out)
+
+	// Also test heterogeneous inner values across outer entries.
+	m2 := map[int]map[int]interface{}{
+		1: {10: "hello"},
+		2: {20: 42},
+	}
+	b2, err := msgpack.Marshal(m2)
+	require.NoError(t, err)
+
+	var out2 interface{}
+	require.NoError(t, msgpack.Unmarshal(b2, &out2))
+	require.NotNil(t, out2)
+}
+
 func mustParseTime(format, s string) time.Time {
 	tm, err := time.Parse(format, s)
 	if err != nil {
