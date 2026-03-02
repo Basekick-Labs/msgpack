@@ -289,6 +289,30 @@ var encoderTests = []encoderTest{
 	{&Intern{A: "foo", B: "foo", C: "foo"}, "83a141a3666f6fa142d48000a143d48000"},
 }
 
+func TestMarshalReflectValue(t *testing.T) {
+	// Issue #15: encoding a struct/map containing reflect.Value should not panic.
+	m := map[string]interface{}{
+		"num": reflect.ValueOf(42),
+		"str": reflect.ValueOf("hello"),
+	}
+	b, err := msgpack.Marshal(m)
+	require.NoError(t, err)
+
+	var out map[string]interface{}
+	require.NoError(t, msgpack.Unmarshal(b, &out))
+	require.Equal(t, int8(42), out["num"])
+	require.Equal(t, "hello", out["str"])
+
+	// Zero reflect.Value encodes as nil.
+	b2, err := msgpack.Marshal(map[string]interface{}{
+		"zero": reflect.Value{},
+	})
+	require.NoError(t, err)
+	var out2 map[string]interface{}
+	require.NoError(t, msgpack.Unmarshal(b2, &out2))
+	require.Nil(t, out2["zero"])
+}
+
 func TestEncoder(t *testing.T) {
 	var buf bytes.Buffer
 	enc := msgpack.NewEncoder(&buf)

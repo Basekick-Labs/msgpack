@@ -91,6 +91,10 @@ func _getEncoder(typ reflect.Type) encoderFunc {
 		return encodeErrorValue
 	}
 
+	if typ == reflectValueType {
+		return encodeReflectValue
+	}
+
 	switch kind {
 	case reflect.Ptr:
 		return ptrEncoderFunc(typ)
@@ -186,6 +190,14 @@ func encodeErrorValue(e *Encoder, v reflect.Value) error {
 		return e.EncodeNil()
 	}
 	return e.EncodeString(v.Interface().(error).Error())
+}
+
+func encodeReflectValue(e *Encoder, v reflect.Value) error {
+	rv := v.Interface().(reflect.Value)
+	if !rv.IsValid() {
+		return e.EncodeNil()
+	}
+	return e.EncodeValue(rv)
 }
 
 func encodeUnsupportedValue(e *Encoder, v reflect.Value) error {

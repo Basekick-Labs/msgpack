@@ -11,6 +11,7 @@ import (
 )
 
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
+var reflectValueType = reflect.TypeOf((*reflect.Value)(nil)).Elem()
 
 var (
 	customEncoderType = reflect.TypeOf((*CustomEncoder)(nil)).Elem()
