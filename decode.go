@@ -46,7 +46,11 @@ func PutDecoder(dec *Decoder) {
 	dec.r = nil
 	dec.s = nil
 	dec.bsr.data = nil
-	if dec.buf != nil {
+	// Keep buf capacity for reuse, but drop oversized buffers to prevent
+	// the pool from retaining memory from large decode operations.
+	if cap(dec.buf) > 32*1024 {
+		dec.buf = nil
+	} else if dec.buf != nil {
 		dec.buf = dec.buf[:0]
 	}
 	decPool.Put(dec)

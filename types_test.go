@@ -1271,6 +1271,29 @@ func TestNestedMapIntegerKeys(t *testing.T) {
 	require.NotNil(t, out2)
 }
 
+func TestPoolReleasesOversizedBuffers(t *testing.T) {
+	// Issue #19: pooled encoders/decoders should not retain oversized buffers.
+	// Marshal then unmarshal a large payload; the pool should drop big buffers.
+	large := make([]byte, 64*1024) // 64KB > 32KB cap
+	for i := range large {
+		large[i] = byte(i)
+	}
+
+	b, err := msgpack.Marshal(large)
+	require.NoError(t, err)
+
+	var out []byte
+	require.NoError(t, msgpack.Unmarshal(b, &out))
+	require.Equal(t, large, out)
+
+	// A second marshal/unmarshal of a small value should work without issue.
+	b2, err := msgpack.Marshal("small")
+	require.NoError(t, err)
+	var s string
+	require.NoError(t, msgpack.Unmarshal(b2, &s))
+	require.Equal(t, "small", s)
+}
+
 func mustParseTime(format, s string) time.Time {
 	tm, err := time.Parse(format, s)
 	if err != nil {
