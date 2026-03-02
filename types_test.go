@@ -289,6 +289,41 @@ var encoderTests = []encoderTest{
 	{&Intern{A: "foo", B: "foo", C: "foo"}, "83a141a3666f6fa142d48000a143d48000"},
 }
 
+// Issue #22: custom error types should not be reduced to plain errors.
+type CustomError struct {
+	Code    int
+	Message string
+}
+
+func (e *CustomError) Error() string { return e.Message }
+
+func (e *CustomError) EncodeMsgpack(enc *msgpack.Encoder) error {
+	return enc.EncodeMulti(e.Code, e.Message)
+}
+
+func (e *CustomError) DecodeMsgpack(dec *msgpack.Decoder) error {
+	return dec.DecodeMulti(&e.Code, &e.Message)
+}
+
+func TestCustomErrorPreserved(t *testing.T) {
+	type Container struct {
+		Err error
+	}
+
+	orig := &Container{Err: &CustomError{Code: 404, Message: "not found"}}
+	b, err := msgpack.Marshal(orig)
+	require.NoError(t, err)
+
+	// The encoded data should not be a plain string — it should use the
+	// custom encoder. Verify by decoding the error field as interface{}.
+	var raw map[string]interface{}
+	err = msgpack.Unmarshal(b, &raw)
+	require.NoError(t, err)
+	// If the custom encoder was used, the value is an array [404, "not found"],
+	// not a plain string "not found".
+	require.NotEqual(t, "not found", raw["Err"], "custom error was reduced to plain string")
+}
+
 func TestEncoder(t *testing.T) {
 	var buf bytes.Buffer
 	enc := msgpack.NewEncoder(&buf)

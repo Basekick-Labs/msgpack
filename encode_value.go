@@ -185,7 +185,25 @@ func encodeErrorValue(e *Encoder, v reflect.Value) error {
 	if v.IsNil() {
 		return e.EncodeNil()
 	}
+	// If the concrete type has a custom encoder, use it instead of reducing
+	// the error to a plain string.
+	elem := v.Elem()
+	typ := elem.Type()
+	if hasCustomEncoder(typ) {
+		return e.EncodeValue(elem)
+	}
 	return e.EncodeString(v.Interface().(error).Error())
+}
+
+func hasCustomEncoder(typ reflect.Type) bool {
+	if _, ok := typeEncMap.Load(typ); ok {
+		return true
+	}
+	if typ.Implements(customEncoderType) || typ.Implements(marshalerType) ||
+		typ.Implements(binaryMarshalerType) || typ.Implements(textMarshalerType) {
+		return true
+	}
+	return false
 }
 
 func encodeUnsupportedValue(e *Encoder, v reflect.Value) error {
