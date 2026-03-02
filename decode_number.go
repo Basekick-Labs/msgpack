@@ -87,6 +87,32 @@ func (d *Decoder) DecodeUint64() (uint64, error) {
 	return d.uint(c)
 }
 
+func floatToInt64(f float64) (int64, error) {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0, fmt.Errorf("msgpack: cannot decode %v into int64", f)
+	}
+	if f != math.Trunc(f) {
+		return 0, fmt.Errorf("msgpack: cannot decode fractional float %v into int64", f)
+	}
+	if f > float64(math.MaxInt64) || f < float64(math.MinInt64) {
+		return 0, fmt.Errorf("msgpack: float %v overflows int64", f)
+	}
+	return int64(f), nil
+}
+
+func floatToUint64(f float64) (uint64, error) {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0, fmt.Errorf("msgpack: cannot decode %v into uint64", f)
+	}
+	if f != math.Trunc(f) {
+		return 0, fmt.Errorf("msgpack: cannot decode fractional float %v into uint64", f)
+	}
+	if f < 0 || f > float64(math.MaxUint64) {
+		return 0, fmt.Errorf("msgpack: float %v overflows uint64", f)
+	}
+	return uint64(f), nil
+}
+
 func (d *Decoder) uint(c byte) (uint64, error) {
 	if c == msgpcode.Nil {
 		return 0, nil
@@ -115,6 +141,18 @@ func (d *Decoder) uint(c byte) (uint64, error) {
 		return uint64(n), err
 	case msgpcode.Uint64, msgpcode.Int64:
 		return d.uint64()
+	case msgpcode.Float:
+		n, err := d.float32(c)
+		if err != nil {
+			return 0, err
+		}
+		return floatToUint64(float64(n))
+	case msgpcode.Double:
+		n, err := d.float64(c)
+		if err != nil {
+			return 0, err
+		}
+		return floatToUint64(n)
 	}
 	return 0, fmt.Errorf("msgpack: invalid code=%x decoding uint64", c)
 }
@@ -158,6 +196,18 @@ func (d *Decoder) int(c byte) (int64, error) {
 	case msgpcode.Uint64, msgpcode.Int64:
 		n, err := d.uint64()
 		return int64(n), err
+	case msgpcode.Float:
+		n, err := d.float32(c)
+		if err != nil {
+			return 0, err
+		}
+		return floatToInt64(float64(n))
+	case msgpcode.Double:
+		n, err := d.float64(c)
+		if err != nil {
+			return 0, err
+		}
+		return floatToInt64(n)
 	}
 	return 0, fmt.Errorf("msgpack: invalid code=%x decoding int64", c)
 }

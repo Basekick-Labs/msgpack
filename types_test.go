@@ -1028,6 +1028,73 @@ func TestDecodeFloat32FromFloat64(t *testing.T) {
 	require.Error(t, msgpack.Unmarshal(b, &f))
 }
 
+func TestDecodeInt64FromFloat64(t *testing.T) {
+	// Issue #2: float64-encoded values (e.g. from JSON) should decode into int64/uint64.
+
+	t.Run("happy path", func(t *testing.T) {
+		// float64 -> int64
+		b, err := msgpack.Marshal(float64(10))
+		require.NoError(t, err)
+		var i int64
+		require.NoError(t, msgpack.Unmarshal(b, &i))
+		require.Equal(t, int64(10), i)
+
+		// float64 -> uint64
+		var u uint64
+		require.NoError(t, msgpack.Unmarshal(b, &u))
+		require.Equal(t, uint64(10), u)
+
+		// float32 -> int64
+		b, err = msgpack.Marshal(float32(42))
+		require.NoError(t, err)
+		require.NoError(t, msgpack.Unmarshal(b, &i))
+		require.Equal(t, int64(42), i)
+
+		// negative float64 -> int64
+		b, err = msgpack.Marshal(float64(-7))
+		require.NoError(t, err)
+		require.NoError(t, msgpack.Unmarshal(b, &i))
+		require.Equal(t, int64(-7), i)
+
+		// zero
+		b, err = msgpack.Marshal(float64(0))
+		require.NoError(t, err)
+		require.NoError(t, msgpack.Unmarshal(b, &i))
+		require.Equal(t, int64(0), i)
+	})
+
+	t.Run("errors", func(t *testing.T) {
+		// NaN -> int64
+		b, err := msgpack.Marshal(math.NaN())
+		require.NoError(t, err)
+		var i int64
+		require.Error(t, msgpack.Unmarshal(b, &i))
+
+		// NaN -> uint64
+		var u uint64
+		require.Error(t, msgpack.Unmarshal(b, &u))
+
+		// +Inf -> int64
+		b, _ = msgpack.Marshal(math.Inf(1))
+		require.Error(t, msgpack.Unmarshal(b, &i))
+
+		// -Inf -> uint64
+		b, _ = msgpack.Marshal(math.Inf(-1))
+		require.Error(t, msgpack.Unmarshal(b, &u))
+
+		// fractional -> int64
+		b, _ = msgpack.Marshal(3.14)
+		require.Error(t, msgpack.Unmarshal(b, &i))
+
+		// fractional -> uint64
+		require.Error(t, msgpack.Unmarshal(b, &u))
+
+		// negative float -> uint64
+		b, _ = msgpack.Marshal(float64(-1))
+		require.Error(t, msgpack.Unmarshal(b, &u))
+	})
+}
+
 func TestFloat32(t *testing.T) {
 	tests := []struct {
 		in     float32
