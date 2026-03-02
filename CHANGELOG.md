@@ -15,6 +15,11 @@
 - **decode:** cap `DecodeMap()` allocation at `maxMapSize` (1M) — same OOM vector for `map[string]interface{}` path
 - **decode:** fix `disableAllocLimitFlag` check in `decodeSliceValue` — `!= 1` was always true because the flag value is `1 << 3 = 8`, so the alloc limit in `growSliceValue()` was never applied
 - **decode:** fix error message in `DecodeFloat64` — said "decoding float32" instead of "decoding float64" ([#13](https://github.com/Basekick-Labs/msgpack/issues/13))
+- **decode:** allow float-encoded values to decode into `int64`/`uint64` with validation — rejects NaN, Inf, fractional, and out-of-range values ([#2](https://github.com/Basekick-Labs/msgpack/issues/2))
+- **decode:** allow `float64`-encoded values to decode into `float32` with overflow check ([#12](https://github.com/Basekick-Labs/msgpack/issues/12))
+- **encode:** handle non-addressable values with pointer receivers — `ensureAddr` creates an addressable copy instead of returning an error ([#3](https://github.com/Basekick-Labs/msgpack/issues/3))
+- **encode:** prevent panic when marshalling `reflect.Value` — unwraps and encodes the underlying value ([#15](https://github.com/Basekick-Labs/msgpack/issues/15))
+- **encode:** preserve custom error types instead of reducing to plain strings via `.Error()` ([#22](https://github.com/Basekick-Labs/msgpack/issues/22))
 
 ### Chores
 
