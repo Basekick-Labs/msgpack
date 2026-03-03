@@ -159,8 +159,20 @@ func (fs *fields) OmitEmpty(e *Encoder, strct reflect.Value) []*field {
 		return fs.List
 	}
 
-	fields := make([]*field, 0, len(fs.List))
+	// First pass: count surviving fields. If all survive, return the
+	// original slice without allocating a filtered copy.
+	n := 0
+	for _, f := range fs.List {
+		if !f.Omit(e, strct) {
+			n++
+		}
+	}
+	if n == len(fs.List) {
+		return fs.List
+	}
 
+	// Second pass: build the filtered slice only when necessary.
+	fields := make([]*field, 0, n)
 	for _, f := range fs.List {
 		if !f.Omit(e, strct) {
 			fields = append(fields, f)
