@@ -39,7 +39,12 @@ func encodeMapStringBoolValue(e *Encoder, v reflect.Value) error {
 		return err
 	}
 
-	m := v.Convert(mapStringBoolType).Interface().(map[string]bool)
+	var m map[string]bool
+	if v.Type() == mapStringBoolType {
+		m = v.Interface().(map[string]bool)
+	} else {
+		m = v.Convert(mapStringBoolType).Interface().(map[string]bool)
+	}
 	if e.flags&sortMapKeysFlag != 0 {
 		return e.encodeSortedMapStringBool(m)
 	}
@@ -65,7 +70,12 @@ func encodeMapStringStringValue(e *Encoder, v reflect.Value) error {
 		return err
 	}
 
-	m := v.Convert(mapStringStringType).Interface().(map[string]string)
+	var m map[string]string
+	if v.Type() == mapStringStringType {
+		m = v.Interface().(map[string]string)
+	} else {
+		m = v.Convert(mapStringStringType).Interface().(map[string]string)
+	}
 	if e.flags&sortMapKeysFlag != 0 {
 		return e.encodeSortedMapStringString(m)
 	}
@@ -86,7 +96,12 @@ func encodeMapStringInterfaceValue(e *Encoder, v reflect.Value) error {
 	if v.IsNil() {
 		return e.EncodeNil()
 	}
-	m := v.Convert(mapStringInterfaceType).Interface().(map[string]interface{})
+	var m map[string]interface{}
+	if v.Type() == mapStringInterfaceType {
+		m = v.Interface().(map[string]interface{})
+	} else {
+		m = v.Convert(mapStringInterfaceType).Interface().(map[string]interface{})
+	}
 	if e.flags&sortMapKeysFlag != 0 {
 		return e.EncodeMapSorted(m)
 	}
