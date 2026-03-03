@@ -8,6 +8,15 @@
 - **encode:** `byteSliceWriter` for `Marshal()` path — native `WriteByte` implementation eliminates per-byte heap allocation
 - **encode:** `byteWriter.WriteByte` scratch fix for streaming path — uses `[1]byte` scratch instead of allocating `[]byte{c}`
 - **encode:** `Encode()` fast paths for `map[string]interface{}` and `[]interface{}` — bypasses `reflect.ValueOf` + sync.Map encoder lookup
+- **encode:** `MarshalAppend(dst, v)` API — appends encoded bytes to caller-provided buffer, eliminating the final `make+copy` in `Marshal()` (-26% faster, -94% less memory for callers who reuse buffers)
+- **encode:** two-pass `OmitEmpty` — avoids slice allocation when no fields are omitted (common case for time-series data)
+- **encode:** cache `isZeroer` interface check — pre-computes at struct-discovery time to skip `v.Interface()` boxing during `OmitEmpty` checks
+- **encode/decode:** skip `reflect.Convert` for exact map/slice types — adds `v.Type() == targetType` fast path before `Convert()` for `map[string]string`, `map[string]bool`, `map[string]interface{}`, and `[]string` (-7–8% faster)
+- **encode:** `map[string]string` fast path in `Encode()` type switch — bypasses `reflect.ValueOf` + encoder lookup (-15% faster)
+- **decode:** replace goroutine-per-type `cachedValues` with `sync.Pool` — eliminates goroutine leak and channel synchronization overhead
+- **encode:** pool sorted map key slices via `sync.Pool` — eliminates 1 alloc per sorted map encode for `SetSortMapKeys(true)` callers
+- **decode:** pool recording buffer in `unmarshalValue` — eliminates 1 alloc per `Unmarshaler.UnmarshalMsgpack` call
+- **decode:** inline `hasNilCode` for byte-slice reader path — peeks directly at underlying data, avoiding two interface method calls per nil check (-2–4% faster decode)
 
 ### Bug Fixes
 
@@ -34,6 +43,8 @@
 - Bump `go.mod` to Go 1.26
 - CI: add `-count=1 -timeout=5m` and `GOGC=50` to race tests to prevent OOM on runners ([#33](https://github.com/Basekick-Labs/msgpack/issues/33))
 - CI: change cross-platform step from `go test` to `go vet` (compile-only)
+- Remove tautological `if err != nil` in `decodeInternedInterfaceValue` (nilness warning)
+- Remove unused `nilableType` function from `encode_value.go`
 
 ---
 

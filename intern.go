@@ -105,10 +105,8 @@ func decodeInternedInterfaceValue(d *Decoder, v reflect.Value) error {
 		v.Set(reflect.ValueOf(s))
 		return nil
 	}
-	if err != nil {
-		if _, ok := err.(unexpectedCodeError); !ok {
-			return err
-		}
+	if _, ok := err.(unexpectedCodeError); !ok {
+		return err
 	}
 
 	if err := d.s.UnreadByte(); err != nil {
