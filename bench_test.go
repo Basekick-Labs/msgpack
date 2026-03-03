@@ -304,6 +304,21 @@ func BenchmarkStructMarshal(b *testing.B) {
 	}
 }
 
+func BenchmarkStructMarshalAppend(b *testing.B) {
+	in := structForBenchmark()
+	buf := make([]byte, 0, 2048)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var err error
+		buf, err = msgpack.MarshalAppend(buf[:0], in)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkStructUnmarshal(b *testing.B) {
 	in := structForBenchmark()
 	buf, err := msgpack.Marshal(in)

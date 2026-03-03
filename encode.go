@@ -63,23 +63,26 @@ func PutEncoder(enc *Encoder) {
 
 // Marshal returns the MessagePack encoding of v.
 func Marshal(v interface{}) ([]byte, error) {
+	return MarshalAppend(nil, v)
+}
+
+// MarshalAppend is like Marshal but appends the encoded bytes to dst.
+// This allows callers to reuse buffers and reduce allocations:
+//
+//	buf = buf[:0]
+//	buf, err = msgpack.MarshalAppend(buf, v)
+func MarshalAppend(dst []byte, v interface{}) ([]byte, error) {
 	enc := GetEncoder()
 	enc.resetForMarshal()
 
-	err := enc.Encode(v)
-
-	var b []byte
-	if err == nil {
-		b = make([]byte, len(enc.wbuf))
-		copy(b, enc.wbuf)
+	if err := enc.Encode(v); err != nil {
+		PutEncoder(enc)
+		return dst, err
 	}
 
+	dst = append(dst, enc.wbuf...)
 	PutEncoder(enc)
-
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return dst, nil
 }
 
 type Encoder struct {
