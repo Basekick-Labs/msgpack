@@ -335,10 +335,6 @@ type isZeroer interface {
 
 var isZeroerType = reflect.TypeOf((*isZeroer)(nil)).Elem()
 
-func (e *Encoder) isEmptyValue(v reflect.Value) bool {
-	return e.isEmptyValueHint(v, true)
-}
-
 func (e *Encoder) isEmptyValueHint(v reflect.Value, maybeZeroer bool) bool {
 	kind := v.Kind()
 
