@@ -610,6 +610,14 @@ func (d *Decoder) DecodeRaw() (RawMessage, error) {
 // PeekCode returns the next MessagePack code without advancing the reader.
 // Subpackage msgpack/codes defines the list of available msgpcode.
 func (d *Decoder) PeekCode() (byte, error) {
+	// Fast path: when decoding from a byte slice, peek directly
+	// to avoid two interface method calls (ReadByte + UnreadByte).
+	if d.s == &d.bsr {
+		if d.bsr.pos >= len(d.bsr.data) {
+			return 0, io.EOF
+		}
+		return d.bsr.data[d.bsr.pos], nil
+	}
 	c, err := d.s.ReadByte()
 	if err != nil {
 		return 0, err
@@ -634,6 +642,19 @@ func (d *Decoder) hasNilCode() bool {
 }
 
 func (d *Decoder) readCode() (byte, error) {
+	// Fast path: when decoding from a byte slice, read directly
+	// to avoid interface method dispatch on the hottest decode function.
+	if d.s == &d.bsr {
+		if d.bsr.pos >= len(d.bsr.data) {
+			return 0, io.EOF
+		}
+		c := d.bsr.data[d.bsr.pos]
+		d.bsr.pos++
+		if d.rec != nil {
+			d.rec = append(d.rec, c)
+		}
+		return c, nil
+	}
 	c, err := d.s.ReadByte()
 	if err != nil {
 		return 0, err

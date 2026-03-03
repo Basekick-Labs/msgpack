@@ -279,19 +279,38 @@ func encodeStructValue(e *Encoder, strct reflect.Value) error {
 	fields := structFields.OmitEmpty(e, strct)
 
 	if err := e.EncodeMapLen(len(fields)); err != nil {
+		putFilteredFields(structFields, fields)
 		return err
 	}
 
 	for _, f := range fields {
 		if err := e.EncodeString(f.name); err != nil {
+			putFilteredFields(structFields, fields)
 			return err
 		}
 		if err := f.EncodeValue(e, strct); err != nil {
+			putFilteredFields(structFields, fields)
 			return err
 		}
 	}
 
+	putFilteredFields(structFields, fields)
 	return nil
+}
+
+// putFilteredFields returns a pooled filtered field slice.
+// It is a no-op when the slice is the original fs.List (not pooled).
+func putFilteredFields(fs *fields, filtered []*field) {
+	if len(filtered) > 0 && len(fs.List) > 0 && &filtered[0] == &fs.List[0] {
+		return
+	}
+	for i := range filtered {
+		filtered[i] = nil
+	}
+	if cap(filtered) <= 64 {
+		s := filtered
+		filteredFieldsPool.Put(&s)
+	}
 }
 
 func encodeStructValueAsArray(e *Encoder, strct reflect.Value, fields []*field) error {
