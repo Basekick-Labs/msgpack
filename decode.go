@@ -624,6 +624,11 @@ func (d *Decoder) ReadFull(buf []byte) error {
 }
 
 func (d *Decoder) hasNilCode() bool {
+	// Fast path: when decoding from a byte slice, peek directly
+	// to avoid two interface method calls (ReadByte + UnreadByte).
+	if d.s == &d.bsr {
+		return d.bsr.pos < len(d.bsr.data) && d.bsr.data[d.bsr.pos] == msgpcode.Nil
+	}
 	code, err := d.PeekCode()
 	return err == nil && code == msgpcode.Nil
 }
