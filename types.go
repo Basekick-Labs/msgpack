@@ -90,11 +90,12 @@ func (m *structCache) Fields(typ reflect.Type, tag string) *fields {
 //------------------------------------------------------------------------------
 
 type field struct {
-	encoder   encoderFunc
-	decoder   decoderFunc
-	name      string
-	index     []int
-	omitEmpty bool
+	encoder     encoderFunc
+	decoder     decoderFunc
+	name        string
+	index       []int
+	omitEmpty   bool
+	maybeZeroer bool // true when the field type implements isZeroer
 }
 
 func (f *field) Omit(e *Encoder, strct reflect.Value) bool {
@@ -103,7 +104,7 @@ func (f *field) Omit(e *Encoder, strct reflect.Value) bool {
 		return true
 	}
 	forced := e.flags&omitEmptyFlag != 0
-	return (f.omitEmpty || forced) && e.isEmptyValue(v)
+	return (f.omitEmpty || forced) && e.isEmptyValueHint(v, f.maybeZeroer)
 }
 
 func (f *field) EncodeValue(e *Encoder, strct reflect.Value) error {
@@ -199,9 +200,10 @@ func getFields(typ reflect.Type, fallbackTag string) *fields {
 		}
 
 		field := &field{
-			name:      tag.Name,
-			index:     f.Index,
-			omitEmpty: omitEmpty || tag.HasOption("omitempty"),
+			name:        tag.Name,
+			index:       f.Index,
+			omitEmpty:   omitEmpty || tag.HasOption("omitempty"),
+			maybeZeroer: f.Type.Implements(isZeroerType) || reflect.PtrTo(f.Type).Implements(isZeroerType),
 		}
 
 		if tag.HasOption("intern") {
@@ -319,7 +321,13 @@ type isZeroer interface {
 	IsZero() bool
 }
 
+var isZeroerType = reflect.TypeOf((*isZeroer)(nil)).Elem()
+
 func (e *Encoder) isEmptyValue(v reflect.Value) bool {
+	return e.isEmptyValueHint(v, true)
+}
+
+func (e *Encoder) isEmptyValueHint(v reflect.Value, maybeZeroer bool) bool {
 	kind := v.Kind()
 
 	for kind == reflect.Interface {
@@ -328,10 +336,13 @@ func (e *Encoder) isEmptyValue(v reflect.Value) bool {
 		}
 		v = v.Elem()
 		kind = v.Kind()
+		maybeZeroer = true // dynamic type — must check at runtime
 	}
 
-	if z, ok := v.Interface().(isZeroer); ok {
-		return nilable(kind) && v.IsNil() || z.IsZero()
+	if maybeZeroer {
+		if z, ok := v.Interface().(isZeroer); ok {
+			return nilable(kind) && v.IsNil() || z.IsZero()
+		}
 	}
 
 	switch kind {
