@@ -5,9 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
+
+var recBufPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 0, 64)
+		return &b
+	},
+}
 
 var (
 	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
@@ -233,17 +241,29 @@ func decodeCustomValue(d *Decoder, v reflect.Value) error {
 }
 
 func unmarshalValue(d *Decoder, v reflect.Value) error {
-	var b []byte
+	bp := recBufPool.Get().(*[]byte)
+	*bp = (*bp)[:0]
 
-	d.rec = make([]byte, 0, 64)
+	d.rec = *bp
 	if err := d.Skip(); err != nil {
+		d.rec = nil
+		*bp = (*bp)[:0]
+		recBufPool.Put(bp)
 		return err
 	}
-	b = d.rec
+	b := d.rec
 	d.rec = nil
 
 	unmarshaler := v.Interface().(Unmarshaler)
-	return unmarshaler.UnmarshalMsgpack(b)
+	err := unmarshaler.UnmarshalMsgpack(b)
+
+	// Return buffer to pool; drop oversized buffers.
+	if cap(b) <= 4096 {
+		*bp = b
+		recBufPool.Put(bp)
+	}
+
+	return err
 }
 
 // unmarshalBinaryOrTextValue peeks at the wire format to choose between
