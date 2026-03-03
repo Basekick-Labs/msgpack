@@ -7,7 +7,10 @@ import (
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
 
-var sliceStringPtrType = reflect.TypeOf((*[]string)(nil))
+var (
+	sliceStringPtrType = reflect.TypeOf((*[]string)(nil))
+	sliceStringType    = sliceStringPtrType.Elem()
+)
 
 // DecodeArrayLen decodes array length. Length is -1 when array is nil.
 func (d *Decoder) DecodeArrayLen() (int, error) {
@@ -36,7 +39,12 @@ func (d *Decoder) arrayLen(c byte) (int, error) {
 }
 
 func decodeStringSliceValue(d *Decoder, v reflect.Value) error {
-	ptr := v.Addr().Convert(sliceStringPtrType).Interface().(*[]string)
+	var ptr *[]string
+	if v.Type() == sliceStringType {
+		ptr = v.Addr().Interface().(*[]string)
+	} else {
+		ptr = v.Addr().Convert(sliceStringPtrType).Interface().(*[]string)
+	}
 	return d.decodeStringSlicePtr(ptr)
 }
 

@@ -99,7 +99,12 @@ func (e *Encoder) EncodeArrayLen(l int) error {
 }
 
 func encodeStringSliceValue(e *Encoder, v reflect.Value) error {
-	ss := v.Convert(stringSliceType).Interface().([]string)
+	var ss []string
+	if v.Type() == stringSliceType {
+		ss = v.Interface().([]string)
+	} else {
+		ss = v.Convert(stringSliceType).Interface().([]string)
+	}
 	return e.encodeStringSlice(ss)
 }
 

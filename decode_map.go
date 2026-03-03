@@ -114,7 +114,12 @@ func (d *Decoder) mapLen(c byte) (int, error) {
 }
 
 func decodeMapStringStringValue(d *Decoder, v reflect.Value) error {
-	mptr := v.Addr().Convert(mapStringStringPtrType).Interface().(*map[string]string)
+	var mptr *map[string]string
+	if v.Type() == mapStringStringType {
+		mptr = v.Addr().Interface().(*map[string]string)
+	} else {
+		mptr = v.Addr().Convert(mapStringStringPtrType).Interface().(*map[string]string)
+	}
 	return d.decodeMapStringStringPtr(mptr)
 }
 
@@ -154,7 +159,12 @@ func (d *Decoder) decodeMapStringStringPtr(ptr *map[string]string) error {
 }
 
 func decodeMapStringInterfaceValue(d *Decoder, v reflect.Value) error {
-	ptr := v.Addr().Convert(mapStringInterfacePtrType).Interface().(*map[string]interface{})
+	var ptr *map[string]interface{}
+	if v.Type() == mapStringInterfaceType {
+		ptr = v.Addr().Interface().(*map[string]interface{})
+	} else {
+		ptr = v.Addr().Convert(mapStringInterfacePtrType).Interface().(*map[string]interface{})
+	}
 	return d.decodeMapStringInterfacePtr(ptr)
 }
 
