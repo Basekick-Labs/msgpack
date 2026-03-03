@@ -4,9 +4,34 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"sync"
 
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
+
+var sortedKeysPool = sync.Pool{
+	New: func() interface{} {
+		s := make([]string, 0, 16)
+		return &s
+	},
+}
+
+func getSortedKeys(n int) *[]string {
+	sp := sortedKeysPool.Get().(*[]string)
+	if cap(*sp) < n {
+		*sp = make([]string, 0, n)
+	} else {
+		*sp = (*sp)[:0]
+	}
+	return sp
+}
+
+func putSortedKeys(sp *[]string) {
+	if cap(*sp) > 1024 {
+		return // don't retain oversized slices
+	}
+	sortedKeysPool.Put(sp)
+}
 
 func encodeMapValue(e *Encoder, v reflect.Value) error {
 	if v.IsNil() {
@@ -119,7 +144,8 @@ func (e *Encoder) EncodeMapSorted(m map[string]interface{}) error {
 		return err
 	}
 
-	keys := make([]string, 0, len(m))
+	sp := getSortedKeys(len(m))
+	keys := *sp
 
 	for k := range m {
 		keys = append(keys, k)
@@ -129,53 +155,73 @@ func (e *Encoder) EncodeMapSorted(m map[string]interface{}) error {
 
 	for _, k := range keys {
 		if err := e.EncodeString(k); err != nil {
+			*sp = keys
+			putSortedKeys(sp)
 			return err
 		}
 		if err := e.Encode(m[k]); err != nil {
+			*sp = keys
+			putSortedKeys(sp)
 			return err
 		}
 	}
 
+	*sp = keys
+	putSortedKeys(sp)
 	return nil
 }
 
 func (e *Encoder) encodeSortedMapStringBool(m map[string]bool) error {
-	keys := make([]string, 0, len(m))
+	sp := getSortedKeys(len(m))
+	keys := *sp
+
 	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		err := e.EncodeString(k)
-		if err != nil {
+		if err := e.EncodeString(k); err != nil {
+			*sp = keys
+			putSortedKeys(sp)
 			return err
 		}
-		if err = e.EncodeBool(m[k]); err != nil {
+		if err := e.EncodeBool(m[k]); err != nil {
+			*sp = keys
+			putSortedKeys(sp)
 			return err
 		}
 	}
 
+	*sp = keys
+	putSortedKeys(sp)
 	return nil
 }
 
 func (e *Encoder) encodeSortedMapStringString(m map[string]string) error {
-	keys := make([]string, 0, len(m))
+	sp := getSortedKeys(len(m))
+	keys := *sp
+
 	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		err := e.EncodeString(k)
-		if err != nil {
+		if err := e.EncodeString(k); err != nil {
+			*sp = keys
+			putSortedKeys(sp)
 			return err
 		}
-		if err = e.EncodeString(m[k]); err != nil {
+		if err := e.EncodeString(m[k]); err != nil {
+			*sp = keys
+			putSortedKeys(sp)
 			return err
 		}
 	}
 
+	*sp = keys
+	putSortedKeys(sp)
 	return nil
 }
 
