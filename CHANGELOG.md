@@ -1,4 +1,14 @@
-## v6 (Basekick-Labs fork)
+## v6.1 (unreleased)
+
+### Performance
+
+- **decode:** `readCode` bsr fast path — when decoding from a byte slice, reads directly from the underlying array instead of dispatching through the `io.ByteReader` interface; eliminates ~900M interface calls/sec at Arc's throughput ([#57](https://github.com/Basekick-Labs/msgpack/issues/57)) (StructUnmarshal **-7.5%**, StructUnmarshalPartially **-6.1%**)
+- **decode:** `PeekCode` bsr fast path — peeks directly at `bsr.data[bsr.pos]` instead of `ReadByte` + `UnreadByte` (two interface calls) ([#59](https://github.com/Basekick-Labs/msgpack/issues/59))
+- **encode:** pool `OmitEmpty` filtered field slices via `sync.Pool` — when fields are actually omitted, the allocated `[]*field` slice is now returned to a pool for reuse instead of being GC'd ([#58](https://github.com/Basekick-Labs/msgpack/issues/58))
+
+---
+
+## v6.0.0 (Basekick-Labs fork)
 
 ### Performance
 

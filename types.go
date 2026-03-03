@@ -120,6 +120,13 @@ func (f *field) DecodeValue(d *Decoder, strct reflect.Value) error {
 	return f.decoder(d, v)
 }
 
+var filteredFieldsPool = sync.Pool{
+	New: func() interface{} {
+		s := make([]*field, 0, 16)
+		return &s
+	},
+}
+
 //------------------------------------------------------------------------------
 
 type fields struct {
@@ -172,14 +179,18 @@ func (fs *fields) OmitEmpty(e *Encoder, strct reflect.Value) []*field {
 		return fs.List
 	}
 
-	// Second pass: build the filtered slice only when necessary.
-	fields := make([]*field, 0, n)
+	// Second pass: build the filtered slice from pool.
+	sp := filteredFieldsPool.Get().(*[]*field)
+	fields := (*sp)[:0]
+	if cap(fields) < n {
+		fields = make([]*field, 0, n)
+	}
 	for _, f := range fs.List {
 		if !f.Omit(e, strct) {
 			fields = append(fields, f)
 		}
 	}
-
+	*sp = fields
 	return fields
 }
 
