@@ -3,7 +3,7 @@ package msgpappengine
 import (
 	"reflect"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/Basekick-Labs/msgpack/v6"
 	ds "google.golang.org/appengine/datastore"
 )
 

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/vmihailenco/msgpack/v5/msgpcode"
+	"github.com/Basekick-Labs/msgpack/v6/msgpcode"
 )
 
 var sortedKeysPool = sync.Pool{
