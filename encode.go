@@ -243,6 +243,8 @@ func (e *Encoder) Encode(v interface{}) error {
 		return e.encodeInt64Cond(int64(v))
 	case time.Time:
 		return e.EncodeTime(v)
+	case map[string]string:
+		return e.encodeMapStringString(v)
 	case map[string]interface{}:
 		if e.flags&sortMapKeysFlag != 0 {
 			return e.EncodeMapSorted(v)
