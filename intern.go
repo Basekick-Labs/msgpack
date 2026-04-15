@@ -11,6 +11,12 @@ import (
 const (
 	minInternedStringLen = 3
 	maxDictLen           = math.MaxUint16
+
+	// internDictPoolCap is the threshold above which a pooled Encoder/Decoder
+	// drops its interned-string dict in Put*() instead of retaining it for
+	// reuse. Mirrors the wbuf/buf cap-drop pattern: keeps hot, small dicts
+	// warm without letting a one-off large session bloat pool memory.
+	internDictPoolCap = 4096
 )
 
 var internedStringExtID = int8(math.MinInt8)
@@ -63,7 +69,8 @@ func (e *Encoder) encodeInternedString(s string, intern bool) error {
 
 	if intern && len(s) >= minInternedStringLen && len(e.dict) < maxDictLen {
 		if e.dict == nil {
-			e.dict = make(map[string]int)
+			e.dict = make(map[string]int, e.internCap)
+			e.dictOwned = true
 		}
 		idx := len(e.dict)
 		e.dict[s] = idx
@@ -227,6 +234,12 @@ func (d *Decoder) decodeInternedStringWithLen(n int, intern bool) (string, error
 	}
 
 	if intern && len(s) >= minInternedStringLen && len(d.dict) < maxDictLen {
+		if d.dict == nil {
+			if d.internCap > 0 {
+				d.dict = make([]string, 0, d.internCap)
+			}
+			d.dictOwned = true
+		}
 		d.dict = append(d.dict, s)
 	}
 

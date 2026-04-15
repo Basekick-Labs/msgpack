@@ -5,6 +5,7 @@
 - **decode:** `readCode` bsr fast path — when decoding from a byte slice, reads directly from the underlying array instead of dispatching through the `io.ByteReader` interface; eliminates ~900M interface calls/sec at Arc's throughput ([#57](https://github.com/Basekick-Labs/msgpack/issues/57)) (StructUnmarshal **-7.5%**, StructUnmarshalPartially **-6.1%**)
 - **decode:** `PeekCode` bsr fast path — peeks directly at `bsr.data[bsr.pos]` instead of `ReadByte` + `UnreadByte` (two interface calls) ([#59](https://github.com/Basekick-Labs/msgpack/issues/59))
 - **encode:** pool `OmitEmpty` filtered field slices via `sync.Pool` — when fields are actually omitted, the allocated `[]*field` slice is now returned to a pool for reuse instead of being GC'd ([#58](https://github.com/Basekick-Labs/msgpack/issues/58))
+- **encode/decode:** pool and pre-allocate interned-string dict — `SetInternedStringsDictCap(n)` pre-sizes the dict to avoid map rehashing and slice growth; pooled encoders/decoders now reuse dict storage across `Reset()` (cleared in place) instead of discarding it, and `Put*()` drops oversized dicts to keep the pool lean ([#66](https://github.com/Basekick-Labs/msgpack/issues/66))
 
 ---
 
