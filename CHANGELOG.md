@@ -6,6 +6,7 @@
 - **decode:** `PeekCode` bsr fast path — peeks directly at `bsr.data[bsr.pos]` instead of `ReadByte` + `UnreadByte` (two interface calls) ([#59](https://github.com/Basekick-Labs/msgpack/issues/59))
 - **encode:** pool `OmitEmpty` filtered field slices via `sync.Pool` — when fields are actually omitted, the allocated `[]*field` slice is now returned to a pool for reuse instead of being GC'd ([#58](https://github.com/Basekick-Labs/msgpack/issues/58))
 - **encode/decode:** pool and pre-allocate interned-string dict — `SetInternedStringsDictCap(n)` pre-sizes the dict to avoid map rehashing and slice growth; pooled encoders/decoders now reuse dict storage across `Reset()` (cleared in place) instead of discarding it, and `Put*()` drops oversized dicts to keep the pool lean ([#66](https://github.com/Basekick-Labs/msgpack/issues/66))
+- **decode:** hoist `newValue()` allocations out of `decodeTypedMapValue` loop — reuses a single key slot and value slot across all map entries, zeroing between iterations. Takes typed-map decode from 2N `reflect.New()` calls to 2 per map ([#65](https://github.com/Basekick-Labs/msgpack/issues/65)) (BenchmarkLargeMapIntInt **-50% allocs/op**, **-50% B/op**, **-10% ns/op** for 1000-entry `map[int]int`)
 
 ---
 

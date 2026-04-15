@@ -192,6 +192,15 @@ func BenchmarkMapIntInt(b *testing.B) {
 	benchmarkEncodeDecode(b, src, &dst)
 }
 
+func BenchmarkLargeMapIntInt(b *testing.B) {
+	src := make(map[int]int, 1000)
+	for i := 0; i < 1000; i++ {
+		src[i] = i
+	}
+	var dst map[int]int
+	benchmarkEncodeDecode(b, src, &dst)
+}
+
 func BenchmarkStringSlice(b *testing.B) {
 	src := []string{"hello", "world"}
 	var dst []string

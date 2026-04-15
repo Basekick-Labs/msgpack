@@ -548,6 +548,14 @@ var (
 		{in: mapStringInterface{"foo": "bar"}, out: new(mapStringInterface)},
 		{in: map[stringAlias]interfaceAlias{"foo": "bar"}, out: new(map[stringAlias]interfaceAlias)},
 		{in: map[int]string{1: "string"}, out: new(map[int]string)},
+		// Map value types whose decoder reuses existing state (slice
+		// backing array, nested map, struct fields). Regression coverage
+		// for #65: decodeTypedMapValue hoists key/value slots out of the
+		// loop, so these types would clobber earlier entries if the
+		// per-iteration zeroing were removed.
+		{in: map[int][]int{1: {1, 2, 3}, 2: {4, 5, 6}, 3: {7, 8, 9}}, out: new(map[int][]int)},
+		{in: map[string][]string{"a": {"x", "y"}, "b": {"z"}}, out: new(map[string][]string)},
+		{in: map[string]map[string]int{"o1": {"i": 1}, "o2": {"i": 2}}, out: new(map[string]map[string]int)},
 
 		{in: (*Object)(nil), out: new(*Object)},
 		{in: &Object{42}, out: new(Object)},

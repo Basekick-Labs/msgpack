@@ -291,18 +291,34 @@ func (d *Decoder) decodeTypedMapN(n int) (interface{}, error) {
 }
 
 func (d *Decoder) decodeTypedMapValue(v reflect.Value, n int) error {
+	if n == 0 {
+		return nil
+	}
 	var (
 		typ       = v.Type()
 		keyType   = typ.Key()
 		valueType = typ.Elem()
 	)
+	// Hoist the key and value slots out of the loop so we pay two
+	// reflect.New allocations per map decode instead of 2N. SetMapIndex
+	// copies the key and value, so the stored entries are unaffected by
+	// subsequent mutation of mk/mv.
+	//
+	// Zeroing each iteration is required for correctness, not just
+	// hygiene: value decoders like decodeSliceValue reuse an existing
+	// slice's backing array when v.Cap() >= n, which would otherwise let
+	// iteration 2 clobber iteration 1's already-stored slice.
+	mk := d.newValue(keyType).Elem()
+	mv := d.newValue(valueType).Elem()
+	keyZero := reflect.Zero(keyType)
+	valueZero := reflect.Zero(valueType)
 	for i := 0; i < n; i++ {
-		mk := d.newValue(keyType).Elem()
+		mk.Set(keyZero)
 		if err := d.DecodeValue(mk); err != nil {
 			return err
 		}
 
-		mv := d.newValue(valueType).Elem()
+		mv.Set(valueZero)
 		if err := d.DecodeValue(mv); err != nil {
 			return err
 		}
