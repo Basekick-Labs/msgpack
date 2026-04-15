@@ -553,3 +553,65 @@ func TestPtrValueDecode(t *testing.T) {
 	require.NotNil(t, foo.Bar)
 	require.Equal(t, *foo.Bar, bar2)
 }
+
+// TestDecodeTypedMapSliceValuesAreIndependent is the regression test for #65.
+// decodeTypedMapValue hoists the key/value reflect.Value slots out of the
+// per-entry loop and zeroes them each iteration. Without the zeroing step,
+// decodeSliceValue would reuse the previous iteration's backing array
+// (since it reuses capacity when v.Cap() >= n), corrupting entries already
+// written to the map.
+func TestDecodeTypedMapSliceValuesAreIndependent(t *testing.T) {
+	in := map[int][]int{
+		1: {10, 11, 12},
+		2: {20, 21, 22},
+		3: {30, 31, 32},
+	}
+
+	b, err := msgpack.Marshal(in)
+	require.Nil(t, err)
+
+	var out map[int][]int
+	require.Nil(t, msgpack.Unmarshal(b, &out))
+	require.Equal(t, in, out)
+
+	// Mutating one entry must not touch any other. If the decode loop
+	// reused a single backing array, the entries would alias and this
+	// assertion would fail.
+	for i := range out[1] {
+		out[1][i] = -1
+	}
+	require.Equal(t, []int{20, 21, 22}, out[2])
+	require.Equal(t, []int{30, 31, 32}, out[3])
+}
+
+// TestDecodeTypedMapStructValuesAreIndependent covers the struct-value
+// case of the same hoist bug. The struct carries a slice field so the
+// aliasing mechanism fires through the hoisted value slot: decodeStructValue
+// writes every field present in the payload, but the slice field itself is
+// decoded via decodeSliceValue, which reuses the existing backing array
+// when capacity is sufficient. Without per-iteration zeroing of the outer
+// struct's slot, iteration 2's slice field would overwrite iteration 1's.
+func TestDecodeTypedMapStructValuesAreIndependent(t *testing.T) {
+	type kv struct {
+		A int
+		B []string
+	}
+	in := map[int]kv{
+		1: {1, []string{"one", "uno"}},
+		2: {2, []string{"two", "dos"}},
+		3: {3, []string{"three", "tres"}},
+	}
+
+	b, err := msgpack.Marshal(in)
+	require.Nil(t, err)
+
+	var out map[int]kv
+	require.Nil(t, msgpack.Unmarshal(b, &out))
+	require.Equal(t, in, out)
+
+	for i := range out[1].B {
+		out[1].B[i] = "MUTATED"
+	}
+	require.Equal(t, []string{"two", "dos"}, out[2].B)
+	require.Equal(t, []string{"three", "tres"}, out[3].B)
+}
