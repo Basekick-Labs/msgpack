@@ -58,6 +58,16 @@ func PutEncoder(enc *Encoder) {
 	if cap(enc.wbuf) > 32*1024 {
 		enc.wbuf = nil
 	}
+	// Drop the interned-string dict if we own it and it grew large, so pool
+	// entries don't permanently retain memory from a one-off large interning
+	// session. A caller-owned dict is always dropped so we never hold a
+	// reference to caller memory across pool round-trips.
+	if !enc.dictOwned {
+		enc.dict = nil
+	} else if len(enc.dict) > internDictPoolCap {
+		enc.dict = nil
+		enc.dictOwned = false
+	}
 	encPool.Put(enc)
 }
 
@@ -94,6 +104,8 @@ type Encoder struct {
 	buf       []byte
 	timeBuf   []byte
 	flags     uint32
+	internCap int  // initial capacity hint for the interned-string dict
+	dictOwned bool // true when dict was lazily allocated by us, safe to mutate/pool
 }
 
 // NewEncoder returns a new encoder that writes to w.
@@ -116,23 +128,33 @@ func (e *Encoder) Reset(w io.Writer) {
 }
 
 // ResetDict is like Reset, but also resets the dict.
+//
+// A non-nil dict replaces the current dict; the encoder will not mutate it
+// (caller retains ownership). A nil dict keeps any internally-owned dict
+// storage for reuse, cleared to empty — subsequent interned encodes skip
+// the map allocation.
 func (e *Encoder) ResetDict(w io.Writer, dict map[string]int) {
 	e.ResetWriter(w)
 	e.flags = 0
 	e.structTag = ""
-	e.dict = dict
+	if dict != nil {
+		e.dict = dict
+		e.dictOwned = false
+	}
 }
 
 func (e *Encoder) WithDict(dict map[string]int, fn func(*Encoder) error) error {
-	oldDict := e.dict
+	oldDict, oldOwned := e.dict, e.dictOwned
 	e.dict = dict
+	e.dictOwned = false
 	err := fn(e)
 	e.dict = oldDict
+	e.dictOwned = oldOwned
 	return err
 }
 
 func (e *Encoder) ResetWriter(w io.Writer) {
-	e.dict = nil
+	e.releaseOrClearDict()
 	if bw, ok := w.(writer); ok {
 		e.w = bw
 	} else if w == nil {
@@ -150,7 +172,18 @@ func (e *Encoder) resetForMarshal() {
 	e.w = &e.bsw
 	e.flags = 0
 	e.structTag = ""
-	e.dict = nil
+	e.releaseOrClearDict()
+}
+
+// releaseOrClearDict reuses the dict storage if we allocated it ourselves;
+// otherwise it drops the reference so a caller-supplied dict is never
+// mutated by a subsequent reset.
+func (e *Encoder) releaseOrClearDict() {
+	if e.dictOwned {
+		clear(e.dict)
+	} else {
+		e.dict = nil
+	}
 }
 
 // SetSortMapKeys causes the Encoder to encode map keys in increasing order.
@@ -218,6 +251,27 @@ func (e *Encoder) UseInternedStrings(on bool) {
 	} else {
 		e.flags &= ^useInternedStringsFlag
 	}
+}
+
+// SetInternedStringsDictCap sets an initial capacity hint for the
+// interned-string dict, avoiding map rehashing as entries are added.
+// n is clamped to [0, maxDictLen]; 0 restores lazy allocation.
+//
+// The hint is consulted the next time the dict is allocated — typically on
+// the first interned encode after construction, Reset, or ResetDict. Call
+// it before encoding to guarantee it takes effect.
+//
+// When the encoder is managed by GetEncoder/PutEncoder, PutEncoder drops
+// dicts whose length exceeds an internal pool-retention threshold so a
+// single oversized session doesn't permanently bloat pool memory. Setting
+// n above that threshold forfeits cross-Put reuse of the dict.
+func (e *Encoder) SetInternedStringsDictCap(n int) {
+	if n < 0 {
+		n = 0
+	} else if n > maxDictLen {
+		n = maxDictLen
+	}
+	e.internCap = n
 }
 
 func (e *Encoder) Encode(v interface{}) error {

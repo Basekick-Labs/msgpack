@@ -53,6 +53,18 @@ func PutDecoder(dec *Decoder) {
 	} else if dec.buf != nil {
 		dec.buf = dec.buf[:0]
 	}
+	// Drop the interned-string dict if we own it and it grew large, so pool
+	// entries don't permanently retain memory from a one-off large interning
+	// session. A caller-owned dict is always dropped so we never hold a
+	// reference to caller memory across pool round-trips. We check cap(),
+	// not len(), because PutDecoder can see a truncated slice (len=0) whose
+	// backing array is still large.
+	if !dec.dictOwned {
+		dec.dict = nil
+	} else if cap(dec.dict) > internDictPoolCap {
+		dec.dict = nil
+		dec.dictOwned = false
+	}
 	decPool.Put(dec)
 }
 
@@ -82,6 +94,8 @@ type Decoder struct {
 	rec        []byte
 	dict       []string
 	flags      uint32
+	internCap  int  // initial capacity hint for the interned-string dict
+	dictOwned  bool // true when dict was lazily allocated by us, safe to mutate/pool
 }
 
 // NewDecoder returns a new decoder that reads from r.
@@ -102,24 +116,34 @@ func (d *Decoder) Reset(r io.Reader) {
 }
 
 // ResetDict is like Reset, but also resets the dict.
+//
+// A non-nil dict replaces the current dict; the decoder will not append to
+// it or otherwise mutate it (caller retains ownership). A nil dict keeps
+// any internally-owned dict storage for reuse, truncated to empty —
+// subsequent interned decodes skip the slice allocation.
 func (d *Decoder) ResetDict(r io.Reader, dict []string) {
 	d.ResetReader(r)
 	d.flags = 0
 	d.structTag = ""
-	d.dict = dict
+	if dict != nil {
+		d.dict = dict
+		d.dictOwned = false
+	}
 }
 
 func (d *Decoder) WithDict(dict []string, fn func(*Decoder) error) error {
-	oldDict := d.dict
+	oldDict, oldOwned := d.dict, d.dictOwned
 	d.dict = dict
+	d.dictOwned = false
 	err := fn(d)
 	d.dict = oldDict
+	d.dictOwned = oldOwned
 	return err
 }
 
 func (d *Decoder) ResetReader(r io.Reader) {
 	d.mapDecoder = nil
-	d.dict = nil
+	d.releaseOrTruncateDict()
 
 	if br, ok := r.(bufReader); ok {
 		d.r = br
@@ -144,7 +168,18 @@ func (d *Decoder) ResetBytes(data []byte) {
 	d.mapDecoder = nil
 	d.flags = 0
 	d.structTag = ""
-	d.dict = nil
+	d.releaseOrTruncateDict()
+}
+
+// releaseOrTruncateDict reuses the dict storage if we allocated it
+// ourselves; otherwise it drops the reference so a caller-supplied dict is
+// never aliased or appended into by a subsequent reset.
+func (d *Decoder) releaseOrTruncateDict() {
+	if d.dictOwned {
+		d.dict = d.dict[:0]
+	} else {
+		d.dict = nil
+	}
 }
 
 func (d *Decoder) SetMapDecoder(fn func(*Decoder) (interface{}, error)) {
@@ -185,6 +220,27 @@ func (d *Decoder) UseInternedStrings(on bool) {
 	} else {
 		d.flags &= ^useInternedStringsFlag
 	}
+}
+
+// SetInternedStringsDictCap sets an initial capacity hint for the
+// interned-string dict, avoiding slice growth as entries are appended.
+// n is clamped to [0, maxDictLen]; 0 restores lazy allocation.
+//
+// The hint is consulted the next time the dict is allocated — typically on
+// the first interned decode after construction, Reset, or ResetDict. Call
+// it before decoding to guarantee it takes effect.
+//
+// When the decoder is managed by GetDecoder/PutDecoder, PutDecoder drops
+// dicts whose capacity exceeds an internal pool-retention threshold so a
+// single oversized session doesn't permanently bloat pool memory. Setting
+// n above that threshold forfeits cross-Put reuse of the dict.
+func (d *Decoder) SetInternedStringsDictCap(n int) {
+	if n < 0 {
+		n = 0
+	} else if n > maxDictLen {
+		n = maxDictLen
+	}
+	d.internCap = n
 }
 
 // UsePreallocateValues enables preallocating values in chunks
