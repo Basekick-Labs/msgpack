@@ -8,6 +8,10 @@
 - **encode/decode:** pool and pre-allocate interned-string dict — `SetInternedStringsDictCap(n)` pre-sizes the dict to avoid map rehashing and slice growth; pooled encoders/decoders now reuse dict storage across `Reset()` (cleared in place) instead of discarding it, and `Put*()` drops oversized dicts to keep the pool lean ([#66](https://github.com/Basekick-Labs/msgpack/issues/66))
 - **decode:** hoist `newValue()` allocations out of `decodeTypedMapValue` loop — reuses a single key slot and value slot across all map entries, zeroing between iterations. Takes typed-map decode from 2N `reflect.New()` calls to 2 per map ([#65](https://github.com/Basekick-Labs/msgpack/issues/65)) (BenchmarkLargeMapIntInt **-50% allocs/op**, **-50% B/op**, **-10% ns/op** for 1000-entry `map[int]int`)
 
+### Chores
+
+- Lower `go.mod` directive from 1.26 to 1.25 — preserves drop-in compatibility for downstream users on Go 1.25; CI matrix unchanged (1.25.x, 1.26.x) ([#70](https://github.com/Basekick-Labs/msgpack/issues/70))
+
 ---
 
 ## v6.0.0 (Basekick-Labs fork)
