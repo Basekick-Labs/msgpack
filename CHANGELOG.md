@@ -1,4 +1,4 @@
-## v6.1 (unreleased)
+## v6.1.0 (2026-04-27)
 
 ### Performance
 
