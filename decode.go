@@ -766,6 +766,22 @@ func (d *Decoder) readN(n int) ([]byte, error) {
 // a declared length is chunked by bytesAllocLimit so a malicious header
 // can't force a huge upfront allocation.
 func (d *Decoder) readNInto(b []byte, n int) ([]byte, error) {
+	// Byte-slice reader: the declared length can be validated against the
+	// data actually present before allocating, so a single exact-size
+	// allocation is safe regardless of the alloc limit. (Unlike d.readN's
+	// zero-copy fast path, the result here is caller-owned and must be a
+	// copy, not a sub-slice of the input.)
+	if d.bsr.data != nil {
+		if remaining := len(d.bsr.data) - d.bsr.pos; n > remaining {
+			// Match io.ReadFull semantics: EOF when no data remains,
+			// ErrUnexpectedEOF on a partial read.
+			if remaining == 0 && n > 0 {
+				return b, io.EOF
+			}
+			return b, io.ErrUnexpectedEOF
+		}
+		return readN(d.r, b, n)
+	}
 	if d.flags&disableAllocLimitFlag != 0 {
 		return readN(d.r, b, n)
 	}
@@ -840,11 +856,4 @@ func readNGrow(r io.Reader, b []byte, n int) ([]byte, error) {
 	}
 
 	return b, nil
-}
-
-func min(a, b int) int { //nolint:unparam
-	if a <= b {
-		return a
-	}
-	return b
 }

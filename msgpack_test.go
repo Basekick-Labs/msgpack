@@ -99,6 +99,27 @@ func (t *MsgpackTest) TestDecodeBytesHugeDeclaredLen() {
 	t.True(errors.Is(dec.Decode(&s), io.ErrUnexpectedEOF))
 }
 
+func (t *MsgpackTest) TestUnmarshalBytesHugeDeclaredLen() {
+	// On the byte-slice path the declared length is validated against the
+	// remaining input before allocating: must fail fast, no huge alloc.
+	data := []byte{0xc6, 0xff, 0xff, 0xff, 0xff, 'x'}
+	var out []byte
+	t.True(errors.Is(msgpack.Unmarshal(data, &out), io.ErrUnexpectedEOF))
+}
+
+func (t *MsgpackTest) TestUnmarshalBytesLarge() {
+	src := bytes.Repeat([]byte{'x'}, 2500*1024)
+	data, err := msgpack.Marshal(src)
+	t.Nil(err)
+
+	var dst []byte
+	t.Nil(msgpack.Unmarshal(data, &dst))
+	t.Equal(src, dst)
+	// The result must be caller-owned, not an alias of the input buffer.
+	data[len(data)-1] = 'y'
+	t.Equal(byte('x'), dst[len(dst)-1])
+}
+
 func (t *MsgpackTest) TestDecodeBytesLargeStream() {
 	// Larger than bytesAllocLimit (1MB) so the chunked grow path is hit.
 	src := bytes.Repeat([]byte{'x'}, 2500*1024)
