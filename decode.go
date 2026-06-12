@@ -777,13 +777,14 @@ func readN(r io.Reader, b []byte, n int) ([]byte, error) {
 		if n == 0 {
 			return make([]byte, 0), nil
 		}
-		b = make([]byte, 0, n)
-	}
-
-	if n > cap(b) {
-		b = append(b, make([]byte, n-len(b))...)
+		b = make([]byte, n)
 	} else if n <= cap(b) {
 		b = b[:n]
+	} else {
+		// ReadFull overwrites all of b, so allocate exactly n instead of
+		// growing with append (which would copy the old contents for
+		// nothing and overshoot the capacity).
+		b = make([]byte, n)
 	}
 
 	_, err := io.ReadFull(r, b)
@@ -810,22 +811,32 @@ func readNGrow(r io.Reader, b []byte, n int) ([]byte, error) {
 		_, err := io.ReadFull(r, b)
 		return b, err
 	}
+
+	// n exceeds the current capacity. Fill the available capacity first,
+	// then grow to at most one bytesAllocLimit chunk or 2x the bytes
+	// already received ahead of the data — whichever is larger — capped
+	// at the exact target n. A malicious declared length can therefore
+	// never force allocation more than max(received, bytesAllocLimit)
+	// ahead of the data actually supplied (the same bound the previous
+	// chunked append provided), while exact sizing avoids append's
+	// capacity overshoot beyond n and reduces alloc+copy rounds.
 	b = b[:cap(b)]
-
-	var pos int
-	for {
-		alloc := min(n-len(b), bytesAllocLimit)
-		b = append(b, make([]byte, alloc)...)
-
-		_, err := io.ReadFull(r, b[pos:])
-		if err != nil {
+	pos := len(b)
+	if pos > 0 {
+		if _, err := io.ReadFull(r, b); err != nil {
 			return b, err
 		}
+	}
+	for pos < n {
+		newCap := min(max(2*pos, pos+bytesAllocLimit), n)
+		nb := make([]byte, newCap)
+		copy(nb, b[:pos])
+		b = nb
 
-		if len(b) == n {
-			break
+		if _, err := io.ReadFull(r, b[pos:]); err != nil {
+			return b, err
 		}
-		pos = len(b)
+		pos = newCap
 	}
 
 	return b, nil
