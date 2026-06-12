@@ -1,3 +1,11 @@
+## Unreleased
+
+### Performance
+
+- **encode/decode:** configurable pooled buffer retention limit via `SetPoolBufferLimit(n)` — workloads with consistently large messages can raise the default 32 KiB threshold so pooled encoders/decoders keep their grown buffers across uses instead of re-allocating ([#62](https://github.com/Basekick-Labs/msgpack/issues/62)) (100KB payloads with a 256 KiB limit: MarshalAppend **-50% ns/op**, **3→1 allocs/op**; stream decode **-37% ns/op**, **3→1 allocs/op**)
+
+---
+
 ## v6.1.0 (2026-04-27)
 
 ### Performance
