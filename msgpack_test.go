@@ -99,6 +99,53 @@ func (t *MsgpackTest) TestMap() {
 	}
 }
 
+func (t *MsgpackTest) TestMapStringInterfaceReuse() {
+	in := map[string]interface{}{"hello": "world", "n": int8(1)}
+	t.Nil(t.enc.Encode(in))
+
+	// A caller-supplied map is decoded into in place (entries merged),
+	// matching the map[string]string behavior.
+	dst := map[string]interface{}{"existing": true, "hello": "stale"}
+	t.Nil(t.dec.Decode(&dst))
+	t.Equal(map[string]interface{}{
+		"existing": true, // retained
+		"hello":    "world",
+		"n":        int8(1),
+	}, dst)
+
+	// msgpack nil still resets the destination to nil.
+	t.Nil(t.enc.Encode(map[string]interface{}(nil)))
+	t.Nil(t.dec.Decode(&dst))
+	t.Nil(dst)
+
+	// And a nil destination map is allocated as before.
+	t.Nil(t.enc.Encode(in))
+	dst = nil
+	t.Nil(t.dec.Decode(&dst))
+	t.Equal(in, dst)
+
+	// An empty msgpack map leaves a pre-populated destination untouched.
+	t.Nil(t.enc.Encode(map[string]interface{}{}))
+	dst = map[string]interface{}{"existing": true}
+	t.Nil(t.dec.Decode(&dst))
+	t.Equal(map[string]interface{}{"existing": true}, dst)
+}
+
+func (t *MsgpackTest) TestMapStringInterfaceStructFieldReuse() {
+	// Struct fields of type map[string]interface{} get the same merge
+	// semantics as map[string]string fields always had: a pre-populated
+	// field map is decoded into, not replaced.
+	type withMap struct {
+		Data map[string]interface{}
+	}
+
+	t.Nil(t.enc.Encode(withMap{Data: map[string]interface{}{"new": "value"}}))
+
+	out := withMap{Data: map[string]interface{}{"existing": true}}
+	t.Nil(t.dec.Decode(&out))
+	t.Equal(map[string]interface{}{"existing": true, "new": "value"}, out.Data)
+}
+
 func (t *MsgpackTest) TestStructNil() {
 	var dst *nameStruct
 

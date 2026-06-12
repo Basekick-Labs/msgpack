@@ -168,12 +168,41 @@ func decodeMapStringInterfaceValue(d *Decoder, v reflect.Value) error {
 	return d.decodeMapStringInterfacePtr(ptr)
 }
 
+// decodeMapStringInterfacePtr decodes into an existing map when the caller
+// supplies one (entries are merged in, matching decodeMapStringStringPtr),
+// avoiding a map allocation per decode for callers that reuse destinations.
 func (d *Decoder) decodeMapStringInterfacePtr(ptr *map[string]interface{}) error {
-	m, err := d.DecodeMap()
+	size, err := d.DecodeMapLen()
 	if err != nil {
 		return err
 	}
-	*ptr = m
+	if size == -1 {
+		*ptr = nil
+		return nil
+	}
+
+	m := *ptr
+	if m == nil {
+		ln := size
+		if d.flags&disableAllocLimitFlag == 0 {
+			ln = min(size, maxMapSize)
+		}
+		*ptr = make(map[string]interface{}, ln)
+		m = *ptr
+	}
+
+	for i := 0; i < size; i++ {
+		mk, err := d.DecodeString()
+		if err != nil {
+			return err
+		}
+		mv, err := d.decodeInterfaceCond()
+		if err != nil {
+			return err
+		}
+		m[mk] = mv
+	}
+
 	return nil
 }
 
