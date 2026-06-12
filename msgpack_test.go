@@ -75,6 +75,26 @@ func (t *MsgpackTest) TestLargeString() {
 	t.Equal(dst, src)
 }
 
+func (t *MsgpackTest) TestDecodeUntypedMapHugeDeclaredLen() {
+	// A map32 header declaring ~4G entries with no payload: the map size
+	// hint must be clamped at maxMapSize before allocation (with the old
+	// code this allocated a multi-GB map upfront), then fail decoding the
+	// first key.
+	data := []byte{0xdf, 0xff, 0xff, 0xff, 0xff}
+	dec := msgpack.NewDecoder(bytes.NewReader(data))
+	_, err := dec.DecodeUntypedMap()
+	t.NotNil(err)
+}
+
+func (t *MsgpackTest) TestDecodeUntypedMap() {
+	in := map[interface{}]interface{}{int8(1): "one", "two": int8(2)}
+	t.Nil(t.enc.Encode(in))
+
+	out, err := t.dec.DecodeUntypedMap()
+	t.Nil(err)
+	t.Equal(in, out)
+}
+
 func (t *MsgpackTest) TestSliceOfStructs() {
 	in := []*nameStruct{{"hello"}}
 	var out []*nameStruct
