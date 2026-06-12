@@ -11,6 +11,35 @@ import (
 	"github.com/Basekick-Labs/msgpack/v6"
 )
 
+func benchmarkEncode(b *testing.B, src interface{}) {
+	enc := msgpack.NewEncoder(ioutil.Discard)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		if err := enc.Encode(src); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeInt8(b *testing.B)  { benchmarkEncode(b, int8(-42)) }
+func BenchmarkEncodeInt16(b *testing.B) { benchmarkEncode(b, int16(-3200)) }
+func BenchmarkEncodeInt32(b *testing.B) { benchmarkEncode(b, int32(-320000)) }
+
+func BenchmarkEncodeUint8(b *testing.B)  { benchmarkEncode(b, uint8(200)) }
+func BenchmarkEncodeUint16(b *testing.B) { benchmarkEncode(b, uint16(64000)) }
+func BenchmarkEncodeUint32(b *testing.B) { benchmarkEncode(b, uint32(4000000000)) }
+
+func BenchmarkEncodeStringSlice(b *testing.B) {
+	benchmarkEncode(b, []string{"hello", "world", "foo", "bar"})
+}
+
+func BenchmarkEncodeMapStringBool(b *testing.B) {
+	benchmarkEncode(b, map[string]bool{"hello": true, "world": false})
+}
+
 func BenchmarkDiscard(b *testing.B) {
 	enc := msgpack.NewEncoder(ioutil.Discard)
 

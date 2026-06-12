@@ -133,6 +133,27 @@ func encodeMapStringInterfaceValue(e *Encoder, v reflect.Value) error {
 	return e.EncodeMap(m)
 }
 
+func (e *Encoder) encodeMapStringBool(m map[string]bool) error {
+	if m == nil {
+		return e.EncodeNil()
+	}
+	if err := e.EncodeMapLen(len(m)); err != nil {
+		return err
+	}
+	if e.flags&sortMapKeysFlag != 0 {
+		return e.encodeSortedMapStringBool(m)
+	}
+	for mk, mv := range m {
+		if err := e.EncodeString(mk); err != nil {
+			return err
+		}
+		if err := e.EncodeBool(mv); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *Encoder) encodeMapStringString(m map[string]string) error {
 	if m == nil {
 		return e.EncodeNil()
