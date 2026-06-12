@@ -1,3 +1,15 @@
+## Unreleased
+
+### Bug Fixes
+
+- **decode:** enforce alloc limit in bytes decode paths — `bytes()`/`bytesPtr()` called the unbounded `readN` directly, so on a stream decode a malicious `bin32`/`str32` header declaring ~4GB forced a ~4GB upfront allocation even with alloc limits enabled (the default). Bytes decoding now routes through `readNInto`, which chunks allocation by `bytesAllocLimit` unless `DisableAllocLimit(true)` is set; on the byte-slice (`Unmarshal`) path the declared length is validated against the remaining input before a single exact-size allocation ([#63](https://github.com/Basekick-Labs/msgpack/issues/63))
+
+### Performance
+
+- **decode:** exact-capacity chunked growth in `readNGrow` — replaces append-based chunk growth with explicit `min(n, max(2*pos, pos+bytesAllocLimit))` sizing: same allocation-ahead-of-data security bound, no capacity overshoot beyond the target, fewer alloc+copy rounds ([#63](https://github.com/Basekick-Labs/msgpack/issues/63)) (4MB string stream decode **-30.5% ns/op**, **-28.5% B/op**)
+
+---
+
 ## v6.1.0 (2026-04-27)
 
 ### Performance

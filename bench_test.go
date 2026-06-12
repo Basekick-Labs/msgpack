@@ -131,6 +131,50 @@ func BenchmarkByteSlice(b *testing.B) {
 	benchmarkEncodeDecode(b, src, &dst)
 }
 
+// Stream decodes larger than bytesAllocLimit (1MB) exercise the chunked
+// growth path in readNGrow (issue #63).
+
+func BenchmarkDecodeBytesStream4MB(b *testing.B) {
+	data, err := msgpack.Marshal(make([]byte, 4<<20))
+	if err != nil {
+		b.Fatal(err)
+	}
+	rd := bytes.NewReader(data)
+	var out []byte
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		rd.Reset(data)
+		dec := msgpack.NewDecoder(rd)
+		out = nil
+		if err := dec.Decode(&out); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkDecodeStringStream4MB(b *testing.B) {
+	data, err := msgpack.Marshal(string(make([]byte, 4<<20)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	rd := bytes.NewReader(data)
+	var out string
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		rd.Reset(data)
+		dec := msgpack.NewDecoder(rd)
+		if err := dec.Decode(&out); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkByteArray(b *testing.B) {
 	var src [1024]byte
 	var dst [1024]byte
