@@ -55,7 +55,7 @@ func GetEncoder() *Encoder {
 func PutEncoder(enc *Encoder) {
 	enc.w = nil
 	// Keep wbuf capacity for reuse, but drop oversized buffers.
-	if cap(enc.wbuf) > 32*1024 {
+	if poolBufOversized(cap(enc.wbuf)) {
 		enc.wbuf = nil
 	}
 	// Drop the interned-string dict if we own it and it grew large, so pool
