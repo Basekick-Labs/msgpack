@@ -3,6 +3,7 @@
 ### Performance
 
 - **decode:** reuse caller-supplied destination map for `map[string]interface{}` — `Decode(&m)`/`Unmarshal(data, &m)` with a non-nil `m` now decodes into the existing map (entries merged) instead of replacing it with a fresh allocation, matching the long-standing `map[string]string` behavior. Applies to all decode paths for the type: the `Decode()` fast path, struct fields, and named map types. Callers that `clear(m)` and reuse the destination get zero map allocations per decode ([#61](https://github.com/Basekick-Labs/msgpack/issues/61)) (decoding a 4-key map into a reused destination, v6 vs this change on the same benchmark: **-22.9% ns/op**, **-80.8% B/op**, 12 → 10 allocs/op). Note: this diverges from upstream, which replaces a non-nil `map[string]interface{}` destination; pass a nil map to keep replace semantics.
+- **encode/decode:** configurable pooled buffer retention limit via `SetPoolBufferLimit(n)` — workloads with consistently large messages can raise the default 32 KiB threshold so pooled encoders/decoders keep their grown buffers across uses instead of re-allocating ([#62](https://github.com/Basekick-Labs/msgpack/issues/62)) (100KB payloads with a 256 KiB limit: MarshalAppend **-50% ns/op**, **3→1 allocs/op**; stream decode **-37% ns/op**, **3→1 allocs/op**)
 
 ---
 
