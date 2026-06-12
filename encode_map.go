@@ -60,39 +60,18 @@ func encodeMapStringBoolValue(e *Encoder, v reflect.Value) error {
 		return e.EncodeNil()
 	}
 
-	if err := e.EncodeMapLen(v.Len()); err != nil {
-		return err
-	}
-
 	var m map[string]bool
 	if v.Type() == mapStringBoolType {
 		m = v.Interface().(map[string]bool)
 	} else {
 		m = v.Convert(mapStringBoolType).Interface().(map[string]bool)
 	}
-	if e.flags&sortMapKeysFlag != 0 {
-		return e.encodeSortedMapStringBool(m)
-	}
-
-	for mk, mv := range m {
-		if err := e.EncodeString(mk); err != nil {
-			return err
-		}
-		if err := e.EncodeBool(mv); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return e.encodeMapStringBool(m)
 }
 
 func encodeMapStringStringValue(e *Encoder, v reflect.Value) error {
 	if v.IsNil() {
 		return e.EncodeNil()
-	}
-
-	if err := e.EncodeMapLen(v.Len()); err != nil {
-		return err
 	}
 
 	var m map[string]string
@@ -101,20 +80,7 @@ func encodeMapStringStringValue(e *Encoder, v reflect.Value) error {
 	} else {
 		m = v.Convert(mapStringStringType).Interface().(map[string]string)
 	}
-	if e.flags&sortMapKeysFlag != 0 {
-		return e.encodeSortedMapStringString(m)
-	}
-
-	for mk, mv := range m {
-		if err := e.EncodeString(mk); err != nil {
-			return err
-		}
-		if err := e.EncodeString(mv); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return e.encodeMapStringString(m)
 }
 
 func encodeMapStringInterfaceValue(e *Encoder, v reflect.Value) error {

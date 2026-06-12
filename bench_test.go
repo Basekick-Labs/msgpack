@@ -40,6 +40,14 @@ func BenchmarkEncodeMapStringBool(b *testing.B) {
 	benchmarkEncode(b, map[string]bool{"hello": true, "world": false})
 }
 
+// namedInt misses every case in the Encode() type switch, measuring the cost
+// of traversing the full switch and falling through to the reflection path.
+type namedInt int64
+
+func BenchmarkEncodeFallthrough(b *testing.B) {
+	benchmarkEncode(b, namedInt(42))
+}
+
 func BenchmarkDiscard(b *testing.B) {
 	enc := msgpack.NewEncoder(ioutil.Discard)
 
