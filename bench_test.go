@@ -5,11 +5,77 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Basekick-Labs/msgpack/v6"
 )
+
+// Large-payload benchmarks for the pooled encoder/decoder buffer limit
+// (issue #62). With the default 32KiB limit, every PutEncoder/PutDecoder
+// drops the grown buffer and the next pooled use must re-grow it; raising
+// the limit retains the buffer across pool round-trips.
+
+func benchmarkMarshalAppendLarge(b *testing.B, n int) {
+	payload := make([]byte, n)
+	buf := make([]byte, 0, n+16)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var err error
+		buf, err = msgpack.MarshalAppend(buf[:0], payload)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkMarshalAppendLarge100KB(b *testing.B) {
+	b.Run("pool-limit-default", func(b *testing.B) {
+		benchmarkMarshalAppendLarge(b, 100<<10)
+	})
+	b.Run("pool-limit-256k", func(b *testing.B) {
+		msgpack.SetPoolBufferLimit(256 << 10)
+		defer msgpack.SetPoolBufferLimit(0)
+		benchmarkMarshalAppendLarge(b, 100<<10)
+	})
+}
+
+func benchmarkDecodeLargeStream(b *testing.B, n int) {
+	data, err := msgpack.Marshal(strings.Repeat("x", n))
+	if err != nil {
+		b.Fatal(err)
+	}
+	rd := bytes.NewReader(data)
+	var out string
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		rd.Reset(data)
+		dec := msgpack.GetDecoder()
+		dec.Reset(rd)
+		if err := dec.Decode(&out); err != nil {
+			b.Fatal(err)
+		}
+		msgpack.PutDecoder(dec)
+	}
+}
+
+func BenchmarkDecodeLargeStream100KB(b *testing.B) {
+	b.Run("pool-limit-default", func(b *testing.B) {
+		benchmarkDecodeLargeStream(b, 100<<10)
+	})
+	b.Run("pool-limit-256k", func(b *testing.B) {
+		msgpack.SetPoolBufferLimit(256 << 10)
+		defer msgpack.SetPoolBufferLimit(0)
+		benchmarkDecodeLargeStream(b, 100<<10)
+	})
+}
 
 func BenchmarkDiscard(b *testing.B) {
 	enc := msgpack.NewEncoder(ioutil.Discard)
