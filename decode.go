@@ -761,6 +761,17 @@ func (d *Decoder) readN(n int) ([]byte, error) {
 	return d.buf, nil
 }
 
+// readNInto reads n bytes into b, growing it as needed, and honors the
+// decoder's alloc limit: unless DisableAllocLimit is set, allocation for
+// a declared length is chunked by bytesAllocLimit so a malicious header
+// can't force a huge upfront allocation.
+func (d *Decoder) readNInto(b []byte, n int) ([]byte, error) {
+	if d.flags&disableAllocLimitFlag != 0 {
+		return readN(d.r, b, n)
+	}
+	return readNGrow(d.r, b, n)
+}
+
 func readN(r io.Reader, b []byte, n int) ([]byte, error) {
 	if b == nil {
 		if n == 0 {

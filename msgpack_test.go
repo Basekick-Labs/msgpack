@@ -3,7 +3,9 @@ package msgpack_test
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"reflect"
 	"testing"
@@ -73,6 +75,47 @@ func (t *MsgpackTest) TestLargeString() {
 	var dst string
 	t.Nil(t.dec.Decode(&dst))
 	t.Equal(dst, src)
+}
+
+func (t *MsgpackTest) TestDecodeBytesHugeDeclaredLen() {
+	// A bin32 header declaring ~4GB with a 1-byte payload must fail with a
+	// read error after at most one bytesAllocLimit-sized chunk — not attempt
+	// to allocate the full declared length upfront.
+	data := []byte{0xc6, 0xff, 0xff, 0xff, 0xff, 'x'}
+
+	var out []byte
+	dec := msgpack.NewDecoder(bytes.NewReader(data))
+	t.True(errors.Is(dec.Decode(&out), io.ErrUnexpectedEOF))
+
+	// Same via DecodeBytes (d.bytes path).
+	dec = msgpack.NewDecoder(bytes.NewReader(data))
+	_, err := dec.DecodeBytes()
+	t.True(errors.Is(err, io.ErrUnexpectedEOF))
+
+	// And via a []byte struct field (decodeBytesValue path).
+	var s struct{ Data []byte }
+	payload := append([]byte{0x81, 0xa4, 'D', 'a', 't', 'a'}, data...)
+	dec = msgpack.NewDecoder(bytes.NewReader(payload))
+	t.True(errors.Is(dec.Decode(&s), io.ErrUnexpectedEOF))
+}
+
+func (t *MsgpackTest) TestDecodeBytesLargeStream() {
+	// Larger than bytesAllocLimit (1MB) so the chunked grow path is hit.
+	src := bytes.Repeat([]byte{'x'}, 2500*1024)
+	data, err := msgpack.Marshal(src)
+	t.Nil(err)
+
+	var dst []byte
+	dec := msgpack.NewDecoder(bytes.NewReader(data))
+	t.Nil(dec.Decode(&dst))
+	t.Equal(src, dst)
+
+	// DisableAllocLimit path still works.
+	dst = nil
+	dec = msgpack.NewDecoder(bytes.NewReader(data))
+	dec.DisableAllocLimit(true)
+	t.Nil(dec.Decode(&dst))
+	t.Equal(src, dst)
 }
 
 func (t *MsgpackTest) TestSliceOfStructs() {
