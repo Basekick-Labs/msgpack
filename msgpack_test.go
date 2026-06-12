@@ -123,6 +123,27 @@ func (t *MsgpackTest) TestMapStringInterfaceReuse() {
 	dst = nil
 	t.Nil(t.dec.Decode(&dst))
 	t.Equal(in, dst)
+
+	// An empty msgpack map leaves a pre-populated destination untouched.
+	t.Nil(t.enc.Encode(map[string]interface{}{}))
+	dst = map[string]interface{}{"existing": true}
+	t.Nil(t.dec.Decode(&dst))
+	t.Equal(map[string]interface{}{"existing": true}, dst)
+}
+
+func (t *MsgpackTest) TestMapStringInterfaceStructFieldReuse() {
+	// Struct fields of type map[string]interface{} get the same merge
+	// semantics as map[string]string fields always had: a pre-populated
+	// field map is decoded into, not replaced.
+	type withMap struct {
+		Data map[string]interface{}
+	}
+
+	t.Nil(t.enc.Encode(withMap{Data: map[string]interface{}{"new": "value"}}))
+
+	out := withMap{Data: map[string]interface{}{"existing": true}}
+	t.Nil(t.dec.Decode(&out))
+	t.Equal(map[string]interface{}{"existing": true, "new": "value"}, out.Data)
 }
 
 func (t *MsgpackTest) TestStructNil() {
