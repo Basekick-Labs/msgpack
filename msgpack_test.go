@@ -99,6 +99,32 @@ func (t *MsgpackTest) TestMap() {
 	}
 }
 
+func (t *MsgpackTest) TestMapStringInterfaceReuse() {
+	in := map[string]interface{}{"hello": "world", "n": int8(1)}
+	t.Nil(t.enc.Encode(in))
+
+	// A caller-supplied map is decoded into in place (entries merged),
+	// matching the map[string]string behavior.
+	dst := map[string]interface{}{"existing": true, "hello": "stale"}
+	t.Nil(t.dec.Decode(&dst))
+	t.Equal(map[string]interface{}{
+		"existing": true, // retained
+		"hello":    "world",
+		"n":        int8(1),
+	}, dst)
+
+	// msgpack nil still resets the destination to nil.
+	t.Nil(t.enc.Encode(map[string]interface{}(nil)))
+	t.Nil(t.dec.Decode(&dst))
+	t.Nil(dst)
+
+	// And a nil destination map is allocated as before.
+	t.Nil(t.enc.Encode(in))
+	dst = nil
+	t.Nil(t.dec.Decode(&dst))
+	t.Equal(in, dst)
+}
+
 func (t *MsgpackTest) TestStructNil() {
 	var dst *nameStruct
 

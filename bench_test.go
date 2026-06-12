@@ -172,6 +172,32 @@ func BenchmarkMapStringInterfaceMsgpack(b *testing.B) {
 	benchmarkEncodeDecode(b, src, &dst)
 }
 
+// Decode into a reused destination map (issue #61): the caller clears and
+// re-passes the same map, so the decoder allocates no map per iteration.
+func BenchmarkUnmarshalMapStringInterfaceReuse(b *testing.B) {
+	src := map[string]interface{}{
+		"hello": "world",
+		"foo":   "bar",
+		"one":   int64(1111111),
+		"two":   int64(2222222),
+	}
+	data, err := msgpack.Marshal(src)
+	if err != nil {
+		b.Fatal(err)
+	}
+	dst := make(map[string]interface{}, len(src))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		clear(dst)
+		if err := msgpack.Unmarshal(data, &dst); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkMapStringInterfaceJSON(b *testing.B) {
 	src := map[string]interface{}{
 		"hello": "world",
