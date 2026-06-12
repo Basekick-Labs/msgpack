@@ -1,3 +1,11 @@
+## Unreleased
+
+### Performance
+
+- **decode:** reuse caller-supplied destination map for `map[string]interface{}` — `Decode(&m)`/`Unmarshal(data, &m)` with a non-nil `m` now decodes into the existing map (entries merged) instead of replacing it with a fresh allocation, matching the long-standing `map[string]string` behavior. Callers that `clear(m)` and reuse the destination get zero map allocations per decode ([#61](https://github.com/Basekick-Labs/msgpack/issues/61)) (reused-destination decode **-22.9% ns/op**, **-80.8% B/op**). Note: this diverges from upstream, which replaces a non-nil `map[string]interface{}` destination; pass a nil map to keep replace semantics.
+
+---
+
 ## v6.1.0 (2026-04-27)
 
 ### Performance
