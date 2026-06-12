@@ -99,6 +99,52 @@ func (t *MsgpackTest) TestMap() {
 	}
 }
 
+func (t *MsgpackTest) TestEncodeTypeSwitchFastPaths() {
+	// Every type fast-pathed in Encode() must produce output byte-identical
+	// to the reflection path (EncodeValue).
+	for _, v := range []interface{}{
+		int8(-42), int8(127), int8(-128),
+		int16(-3200), int16(32767),
+		int32(-320000), int32(2147483647),
+		uint8(0), uint8(200), uint8(255),
+		uint16(64000),
+		uint32(4000000000),
+		[]string{"hello", "world"},
+		[]string{},
+		[]string(nil),
+		map[string]bool{"hello": true},
+		map[string]bool{},
+		map[string]bool(nil),
+	} {
+		var fast, slow bytes.Buffer
+
+		enc := msgpack.NewEncoder(&fast)
+		t.Nil(enc.Encode(v))
+
+		enc = msgpack.NewEncoder(&slow)
+		t.Nil(enc.EncodeValue(reflect.ValueOf(v)))
+
+		t.Equal(slow.Bytes(), fast.Bytes(), fmt.Sprintf("encoding %T(%v)", v, v))
+	}
+}
+
+func (t *MsgpackTest) TestEncodeMapStringBoolSorted() {
+	in := map[string]bool{"c": true, "a": false, "b": true}
+
+	t.enc.SetSortMapKeys(true)
+	t.Nil(t.enc.Encode(in))
+	t.Equal([]byte{
+		0x83,
+		0xa1, 'a', 0xc2,
+		0xa1, 'b', 0xc3,
+		0xa1, 'c', 0xc3,
+	}, t.buf.Bytes())
+
+	var out map[string]bool
+	t.Nil(t.dec.Decode(&out))
+	t.Equal(in, out)
+}
+
 func (t *MsgpackTest) TestStructNil() {
 	var dst *nameStruct
 
