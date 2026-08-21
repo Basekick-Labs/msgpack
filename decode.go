@@ -23,6 +23,7 @@ const (
 	disallowUnknownFieldsFlag
 	usePreallocateValues
 	disableAllocLimitFlag
+	ignoreStructLength
 )
 
 type bufReader interface {
@@ -258,6 +259,15 @@ func (d *Decoder) DisableAllocLimit(on bool) {
 		d.flags |= disableAllocLimitFlag
 	} else {
 		d.flags &= ^disableAllocLimitFlag
+	}
+}
+
+// IgnoreStructLength disables field count verification during parsing
+func (d *Decoder) IgnoreStructLength(on bool) {
+	if on {
+		d.flags |= ignoreStructLength
+	} else {
+		d.flags &= ^ignoreStructLength
 	}
 }
 
