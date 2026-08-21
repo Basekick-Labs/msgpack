@@ -118,10 +118,15 @@ func (t *MsgpackTest) TestDecodeUntypedMap() {
 }
 
 func (t *MsgpackTest) TestDecodeBytesHugeDeclaredLen() {
-	// A bin32 header declaring ~4GB with a 1-byte payload must fail with a
+	// A bin32 header declaring ~2GB with a 1-byte payload must fail with a
 	// read error after at most one bytesAllocLimit-sized chunk — not attempt
 	// to allocate the full declared length upfront.
-	data := []byte{0xc6, 0xff, 0xff, 0xff, 0xff, 'x'}
+	//
+	// 0x7fffffff rather than 0xffffffff: on 32-bit builds the latter exceeds
+	// math.MaxInt and is rejected by the length-overflow check before the
+	// chunked read is reached, so it would fail with a different error.
+	// This value fits in an int on every platform.
+	data := []byte{0xc6, 0x7f, 0xff, 0xff, 0xff, 'x'}
 
 	var out []byte
 	dec := msgpack.NewDecoder(bytes.NewReader(data))
@@ -142,7 +147,8 @@ func (t *MsgpackTest) TestDecodeBytesHugeDeclaredLen() {
 func (t *MsgpackTest) TestUnmarshalBytesHugeDeclaredLen() {
 	// On the byte-slice path the declared length is validated against the
 	// remaining input before allocating: must fail fast, no huge alloc.
-	data := []byte{0xc6, 0xff, 0xff, 0xff, 0xff, 'x'}
+	// 0x7fffffff for the same reason as TestDecodeBytesHugeDeclaredLen.
+	data := []byte{0xc6, 0x7f, 0xff, 0xff, 0xff, 'x'}
 	var out []byte
 	t.True(errors.Is(msgpack.Unmarshal(data, &out), io.ErrUnexpectedEOF))
 }
