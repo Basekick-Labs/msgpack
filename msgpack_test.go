@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -76,14 +77,33 @@ func (t *MsgpackTest) TestLargeString() {
 }
 
 func (t *MsgpackTest) TestDecodeUntypedMapHugeDeclaredLen() {
-	// A map32 header declaring ~4G entries with no payload: the map size
+	// A map32 header declaring ~2G entries with no payload: the map size
 	// hint must be clamped at maxMapSize before allocation (with the old
 	// code this allocated a multi-GB map upfront), then fail decoding the
 	// first key.
-	data := []byte{0xdf, 0xff, 0xff, 0xff, 0xff}
+	//
+	// 0x7fffffff rather than 0xffffffff: the latter is now rejected by the
+	// int-overflow check on 32-bit builds before reaching the clamp, so it
+	// would pass for the wrong reason. This value fits in an int on every
+	// platform and exercises the clamp itself.
+	data := []byte{0xdf, 0x7f, 0xff, 0xff, 0xff}
+
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+
 	dec := msgpack.NewDecoder(bytes.NewReader(data))
 	_, err := dec.DecodeUntypedMap()
 	t.NotNil(err)
+
+	runtime.ReadMemStats(&after)
+	// The clamp caps the hint at maxMapSize (1M entries). Without it the
+	// declared ~2G entries are allocated upfront -- hundreds of MB and tens
+	// of seconds. Allow generous headroom while still failing loudly if the
+	// clamp is removed.
+	if alloc := after.TotalAlloc - before.TotalAlloc; alloc > 256<<20 {
+		t.Failf("allocation not clamped", "decode allocated %d MiB, want < 256 MiB", alloc>>20)
+	}
 }
 
 func (t *MsgpackTest) TestDecodeUntypedMap() {
