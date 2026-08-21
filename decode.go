@@ -770,6 +770,12 @@ func (d *Decoder) readN(n int) ([]byte, error) {
 // a declared length is chunked by bytesAllocLimit so a malicious header
 // can't force a huge upfront allocation.
 func (d *Decoder) readNInto(b []byte, n int) ([]byte, error) {
+	// Guard here as well as in readN/readNGrow: a negative n would
+	// otherwise hit the bsr bounds check below and surface as a
+	// misleading ErrUnexpectedEOF.
+	if n < 0 {
+		return nil, fmt.Errorf("msgpack: invalid length %d", n)
+	}
 	// Byte-slice reader: the declared length can be validated against the
 	// data actually present before allocating, so a single exact-size
 	// allocation is safe regardless of the alloc limit. (Unlike d.readN's
