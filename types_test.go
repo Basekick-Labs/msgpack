@@ -436,6 +436,7 @@ type (
 	sliceByte          []byte
 	sliceString        []string
 	mapStringString    map[string]string
+	mapStringBool      map[string]bool
 	mapStringInterface map[string]interface{}
 )
 
@@ -544,6 +545,9 @@ var (
 		{in: map[string]string(nil), out: new(map[string]string)},
 		{in: map[string]interface{}{"foo": nil}, out: new(map[string]interface{})},
 		{in: mapStringString{"foo": "bar"}, out: new(mapStringString)},
+		{in: map[string]bool{"foo": true, "bar": false}, out: new(map[string]bool)},
+		{in: map[string]bool(nil), out: new(map[string]bool)},
+		{in: mapStringBool{"foo": true}, out: new(mapStringBool)},
 		{in: map[stringAlias]stringAlias{"foo": "bar"}, out: new(map[stringAlias]stringAlias)},
 		{in: mapStringInterface{"foo": "bar"}, out: new(mapStringInterface)},
 		{in: map[stringAlias]interfaceAlias{"foo": "bar"}, out: new(map[stringAlias]interfaceAlias)},

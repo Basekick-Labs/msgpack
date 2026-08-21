@@ -284,10 +284,22 @@ func (e *Encoder) Encode(v interface{}) error {
 		return e.EncodeBytes(v)
 	case int:
 		return e.EncodeInt(int64(v))
+	case int8:
+		return e.encodeInt8Cond(v)
+	case int16:
+		return e.encodeInt16Cond(v)
+	case int32:
+		return e.encodeInt32Cond(v)
 	case int64:
 		return e.encodeInt64Cond(v)
 	case uint:
 		return e.EncodeUint(uint64(v))
+	case uint8:
+		return e.encodeUint8Cond(v)
+	case uint16:
+		return e.encodeUint16Cond(v)
+	case uint32:
+		return e.encodeUint32Cond(v)
 	case uint64:
 		return e.encodeUint64Cond(v)
 	case bool:
@@ -302,6 +314,8 @@ func (e *Encoder) Encode(v interface{}) error {
 		return e.EncodeTime(v)
 	case map[string]string:
 		return e.encodeMapStringString(v)
+	case map[string]bool:
+		return e.encodeMapStringBool(v)
 	case map[string]interface{}:
 		if e.flags&sortMapKeysFlag != 0 {
 			return e.EncodeMapSorted(v)
@@ -309,6 +323,8 @@ func (e *Encoder) Encode(v interface{}) error {
 		return e.EncodeMap(v)
 	case []interface{}:
 		return e.encodeInterfaceSlice(v)
+	case []string:
+		return e.encodeStringSlice(v)
 	}
 	return e.EncodeValue(reflect.ValueOf(v))
 }
