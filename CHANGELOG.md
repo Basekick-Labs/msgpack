@@ -1,5 +1,9 @@
 ## Unreleased
 
+### Fixed
+
+- **decode:** reject 32-bit length headers that overflow `int` on 32-bit platforms — `map32`, `array32`, `str32`, and `bin32` headers declaring a length above `math.MaxInt` were converted with `int(n)`, which on 32-bit builds wraps to a negative value. A length of `0xffffffff` wrapped to `-1` and was silently decoded as a nil map/array/string (wrong result, no error); values in `[0x80000000, 0xfffffffe]` wrapped to other negatives and panicked in `make()` or on a slice expression. All four headers now route through a single checked conversion, and `readN`/`readNGrow` reject negative lengths as defense in depth. 64-bit platforms are unaffected (every `uint32` fits in an `int`). CI now runs the suite under `GOARCH=386`.
+
 ### Performance
 
 - **decode:** reuse caller-supplied destination map for `map[string]interface{}` — `Decode(&m)`/`Unmarshal(data, &m)` with a non-nil `m` now decodes into the existing map (entries merged) instead of replacing it with a fresh allocation, matching the long-standing `map[string]string` behavior. Applies to all decode paths for the type: the `Decode()` fast path, struct fields, and named map types. Callers that `clear(m)` and reuse the destination get zero map allocations per decode ([#61](https://github.com/Basekick-Labs/msgpack/issues/61)) (decoding a 4-key map into a reused destination, v6 vs this change on the same benchmark: **-22.9% ns/op**, **-80.8% B/op**, 12 → 10 allocs/op). Note: this diverges from upstream, which replaces a non-nil `map[string]interface{}` destination; pass a nil map to keep replace semantics.

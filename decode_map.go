@@ -108,7 +108,7 @@ func (d *Decoder) mapLen(c byte) (int, error) {
 	}
 	if c == msgpcode.Map32 {
 		size, err := d.uint32()
-		return int(size), err
+		return uint32Len(size, err, "map")
 	}
 	return 0, unexpectedCodeError{code: c, hint: "map length"}
 }
