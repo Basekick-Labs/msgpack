@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"sync"
 	"time"
@@ -733,9 +734,12 @@ func (d *Decoder) readFull(b []byte) error {
 }
 
 func (d *Decoder) readN(n int) ([]byte, error) {
+	if n < 0 {
+		return nil, fmt.Errorf("msgpack: invalid length %d", n)
+	}
 	// Fast path: byte-slice reader — zero-copy sub-slice of input buffer.
 	if d.bsr.data != nil {
-		if d.bsr.pos+n > len(d.bsr.data) {
+		if n > len(d.bsr.data)-d.bsr.pos {
 			return nil, io.ErrUnexpectedEOF
 		}
 		b := d.bsr.data[d.bsr.pos : d.bsr.pos+n]
@@ -762,6 +766,9 @@ func (d *Decoder) readN(n int) ([]byte, error) {
 }
 
 func readN(r io.Reader, b []byte, n int) ([]byte, error) {
+	if n < 0 {
+		return nil, fmt.Errorf("msgpack: invalid length %d", n)
+	}
 	if b == nil {
 		if n == 0 {
 			return make([]byte, 0), nil
@@ -780,6 +787,9 @@ func readN(r io.Reader, b []byte, n int) ([]byte, error) {
 }
 
 func readNGrow(r io.Reader, b []byte, n int) ([]byte, error) {
+	if n < 0 {
+		return nil, fmt.Errorf("msgpack: invalid length %d", n)
+	}
 	if b == nil {
 		if n == 0 {
 			return make([]byte, 0), nil
@@ -826,3 +836,23 @@ func min(a, b int) int { //nolint:unparam
 	}
 	return b
 }
+
+// uint32Len converts a length decoded from a 32-bit msgpack header to int.
+//
+// On 64-bit platforms every uint32 fits in an int and this is a no-op. On
+// 32-bit platforms a value above math.MaxInt32 would wrap to a negative
+// int, which callers treat as "nil" (-1) or pass to make(), so it is
+// rejected instead. err is threaded through so call sites stay one-liners.
+func uint32Len(n uint32, err error, what string) (int, error) {
+	if err != nil {
+		return 0, err
+	}
+	if uint64(n) > uint64(maxLenForInt) {
+		return 0, fmt.Errorf("msgpack: %s length %d overflows int", what, n)
+	}
+	return int(n), nil
+}
+
+// maxLenForInt is math.MaxInt, in a variable so tests can lower it to
+// math.MaxInt32 and exercise the 32-bit rejection path on a 64-bit host.
+var maxLenForInt uint64 = math.MaxInt

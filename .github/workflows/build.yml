@@ -27,3 +27,24 @@ jobs:
         run: make test
         env:
           GOGC: 50
+
+  test-32bit:
+    name: test (linux/386)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+
+      # ubuntu-latest is amd64, which runs 386 binaries natively -- no
+      # emulation needed. Catches int overflow on 32-bit length headers.
+      - name: Test (32-bit)
+        run: go test ./...
+        env:
+          GOARCH: 386
+          GOGC: 50

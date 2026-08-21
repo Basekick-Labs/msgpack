@@ -33,7 +33,7 @@ func (d *Decoder) arrayLen(c byte) (int, error) {
 		return int(n), err
 	case msgpcode.Array32:
 		n, err := d.uint32()
-		return int(n), err
+		return uint32Len(n, err, "array")
 	}
 	return 0, fmt.Errorf("msgpack: invalid code=%x decoding array length", c)
 }
