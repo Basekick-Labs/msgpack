@@ -78,6 +78,28 @@ func TestPoolBufferLimitDecoder(t *testing.T) {
 	PutDecoder(dec)
 }
 
+func TestPutEncoderClearsFlags(t *testing.T) {
+	enc := GetEncoder()
+	enc.UseCompactInts(true)
+	enc.SetSortMapKeys(true)
+	PutEncoder(enc)
+
+	if enc.flags != 0 {
+		t.Fatalf("encoder flags=%d after PutEncoder, want 0", enc.flags)
+	}
+}
+
+func TestPutDecoderClearsFlags(t *testing.T) {
+	dec := GetDecoder()
+	dec.UseInternedStrings(true)
+	dec.DisallowUnknownFields(true)
+	PutDecoder(dec)
+
+	if dec.flags != 0 {
+		t.Fatalf("decoder flags=%d after PutDecoder, want 0", dec.flags)
+	}
+}
+
 func TestSetPoolBufferLimitClamp(t *testing.T) {
 	SetPoolBufferLimit(-1)
 	if got := getPoolBufferLimit(); got != defaultPoolBufferLimit {

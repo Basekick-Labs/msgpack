@@ -47,6 +47,7 @@ func PutDecoder(dec *Decoder) {
 	dec.r = nil
 	dec.s = nil
 	dec.bsr.data = nil
+	dec.flags = 0
 	// Keep buf capacity for reuse, but drop oversized buffers to prevent
 	// the pool from retaining memory from large decode operations.
 	if poolBufOversized(cap(dec.buf)) {

@@ -54,6 +54,7 @@ func GetEncoder() *Encoder {
 
 func PutEncoder(enc *Encoder) {
 	enc.w = nil
+	enc.flags = 0
 	// Keep wbuf capacity for reuse, but drop oversized buffers.
 	if poolBufOversized(cap(enc.wbuf)) {
 		enc.wbuf = nil
