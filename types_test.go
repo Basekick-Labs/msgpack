@@ -117,11 +117,41 @@ type CustomEncoderEmbeddedPtr struct {
 	*CustomEncoder
 }
 
+type customError struct {
+	code    string
+	message string
+}
+
+func (e *customError) Error() string {
+	return e.code + ": " + e.message
+}
+
+func (e *customError) EncodeMsgpack(enc *msgpack.Encoder) error {
+	return enc.EncodeMulti(e.code, e.message)
+}
+
+func (e *customError) DecodeMsgpack(dec *msgpack.Decoder) error {
+	return dec.DecodeMulti(&e.code, &e.message)
+}
+
 func (s *CustomEncoderEmbeddedPtr) DecodeMsgpack(dec *msgpack.Decoder) error {
 	if s.CustomEncoder == nil {
 		s.CustomEncoder = new(CustomEncoder)
 	}
 	return s.CustomEncoder.DecodeMsgpack(dec)
+}
+
+func TestCustomErrorInInterfaceSlice(t *testing.T) {
+	input := []error{&customError{code: "E42", message: "quota exceeded"}}
+	b, err := msgpack.Marshal(input)
+	require.NoError(t, err)
+
+	output := []error{&customError{}}
+	require.NoError(t, msgpack.Unmarshal(b, &output))
+
+	got, ok := output[0].(*customError)
+	require.True(t, ok, "custom error should retain its concrete type")
+	require.Equal(t, input[0].Error(), got.Error())
 }
 
 //------------------------------------------------------------------------------

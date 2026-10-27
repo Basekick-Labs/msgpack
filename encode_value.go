@@ -192,6 +192,20 @@ func encodeErrorValue(e *Encoder, v reflect.Value) error {
 	if v.IsNil() {
 		return e.EncodeNil()
 	}
+
+	// Preserve a concrete custom encoder stored in an error interface. The
+	// default error representation remains a string for ordinary errors.
+	concrete := v.Elem()
+	if concrete.IsValid() {
+		hasCustomEncoder := concrete.Type().Implements(customEncoderType)
+		if !hasCustomEncoder && concrete.Kind() != reflect.Ptr {
+			hasCustomEncoder = reflect.PtrTo(concrete.Type()).Implements(customEncoderType)
+		}
+		if hasCustomEncoder {
+			return e.EncodeValue(concrete)
+		}
+	}
+
 	return e.EncodeString(v.Interface().(error).Error())
 }
 
