@@ -370,7 +370,7 @@ func (e *Encoder) EncodeBool(value bool) error {
 }
 
 func (e *Encoder) EncodeDuration(d time.Duration) error {
-	return e.EncodeInt(int64(d))
+	return e.encodeInt64Cond(int64(d))
 }
 
 func (e *Encoder) writeCode(c byte) error {

@@ -334,6 +334,40 @@ func TestEncoder(t *testing.T) {
 	}
 }
 
+func TestEncodeDurationHonorsCompactInts(t *testing.T) {
+	tests := []struct {
+		name    string
+		compact bool
+		want    string
+	}{
+		{name: "preserve int64 by default", want: "d30000000000000001"},
+		{name: "use compact integers", compact: true, want: "01"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var durationBuf, genericBuf bytes.Buffer
+			durationEnc := msgpack.NewEncoder(&durationBuf)
+			genericEnc := msgpack.NewEncoder(&genericBuf)
+			durationEnc.UseCompactInts(test.compact)
+			genericEnc.UseCompactInts(test.compact)
+
+			if err := durationEnc.EncodeDuration(time.Duration(1)); err != nil {
+				t.Fatal(err)
+			}
+			if err := genericEnc.Encode(time.Duration(1)); err != nil {
+				t.Fatal(err)
+			}
+			if got := hex.EncodeToString(durationBuf.Bytes()); got != test.want {
+				t.Fatalf("EncodeDuration() = %s, want %s", got, test.want)
+			}
+			if got, want := hex.EncodeToString(durationBuf.Bytes()), hex.EncodeToString(genericBuf.Bytes()); got != want {
+				t.Fatalf("EncodeDuration() = %s, Encode(time.Duration) = %s", got, want)
+			}
+		})
+	}
+}
+
 type floatEncoderTest struct {
 	in      interface{}
 	wanted  string

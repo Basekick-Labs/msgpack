@@ -2,6 +2,7 @@
 
 ### Fixed
 
+- **encode:** make `EncodeDuration` follow `UseCompactInts` like `Encode(time.Duration)`, including the default int64 wire encoding ([#81](https://github.com/Basekick-Labs/msgpack/issues/81))
 - **decode:** reject 32-bit length headers that overflow `int` on 32-bit platforms — `map32`, `array32`, `str32`, and `bin32` headers declaring a length above `math.MaxInt` were converted with `int(n)`, which on 32-bit builds wraps to a negative value. A length of `0xffffffff` wrapped to `-1` and was silently decoded as a nil map/array/string (wrong result, no error); values in `[0x80000000, 0xfffffffe]` wrapped to other negatives and panicked in `make()` or on a slice expression. All four headers now route through a single checked conversion, and `readN`/`readNGrow` reject negative lengths as defense in depth. 64-bit platforms are unaffected (every `uint32` fits in an `int`). CI now runs the suite under `GOARCH=386`.
 - **decode:** enforce alloc limit in bytes decode paths — `bytes()`/`bytesPtr()` called the unbounded `readN` directly, so on a stream decode a malicious `bin32`/`str32` header declaring ~4GB forced a ~4GB upfront allocation even with alloc limits enabled (the default). Bytes decoding now routes through `readNInto`, which chunks allocation by `bytesAllocLimit` unless `DisableAllocLimit(true)` is set; on the byte-slice (`Unmarshal`) path the declared length is validated against the remaining input before a single exact-size allocation ([#63](https://github.com/Basekick-Labs/msgpack/issues/63))
 
