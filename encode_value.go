@@ -49,6 +49,10 @@ func getEncoder(typ reflect.Type) encoderFunc {
 }
 
 func _getEncoder(typ reflect.Type) encoderFunc {
+	if typ == reflectValueType {
+		return encodeUnsupportedValue
+	}
+
 	kind := typ.Kind()
 
 	if kind == reflect.Ptr {

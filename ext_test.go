@@ -3,12 +3,13 @@ package msgpack_test
 import (
 	"bytes"
 	"encoding/hex"
+	"reflect"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/Basekick-Labs/msgpack/v6"
 	"github.com/Basekick-Labs/msgpack/v6/msgpcode"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -170,4 +171,19 @@ func TestDecodeCustomPayload(t *testing.T) {
 	if payload != wanted {
 		t.Fatalf("got %q, wanted %q", payload, wanted)
 	}
+}
+
+func TestMarshalReflectValueInInterfaceMap(t *testing.T) {
+	_, err := msgpack.Marshal(map[string]interface{}{"value": reflect.ValueOf("text")})
+	require.EqualError(t, err, "msgpack: Encode(unsupported reflect.Value)")
+}
+
+func TestMarshalStructWithReflectValueInInterfaceMap(t *testing.T) {
+	type data struct {
+		A interface{} `json:"a"`
+	}
+	key := 1
+	input := &data{A: map[string]interface{}{"key": reflect.ValueOf(&key)}}
+	_, err := msgpack.Marshal(input)
+	require.EqualError(t, err, "msgpack: Encode(unsupported reflect.Value)")
 }

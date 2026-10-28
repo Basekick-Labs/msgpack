@@ -10,7 +10,10 @@ import (
 	"github.com/vmihailenco/tagparser/v2"
 )
 
-var errorType = reflect.TypeOf((*error)(nil)).Elem()
+var (
+	errorType        = reflect.TypeOf((*error)(nil)).Elem()
+	reflectValueType = reflect.TypeOf(reflect.Value{})
+)
 
 var (
 	customEncoderType = reflect.TypeOf((*CustomEncoder)(nil)).Elem()
