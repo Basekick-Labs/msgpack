@@ -110,6 +110,11 @@ func _getDecoder(typ reflect.Type) decoderFunc {
 		}
 	}
 
+	return getDefaultDecoder(typ)
+}
+
+func getDefaultDecoder(typ reflect.Type) decoderFunc {
+	kind := typ.Kind()
 	switch kind {
 	case reflect.Ptr:
 		return ptrValueDecoder(typ)
@@ -296,9 +301,9 @@ func unmarshalTextValue(d *Decoder, v reflect.Value) error {
 			if v.IsNil() {
 				v.Set(reflect.New(v.Type().Elem()))
 			}
-			return valueDecoders[v.Elem().Kind()](d, v.Elem())
+			return getDefaultDecoder(v.Elem().Type())(d, v.Elem())
 		}
-		return valueDecoders[v.Kind()](d, v)
+		return getDefaultDecoder(v.Type())(d, v)
 	}
 	data, err := d.DecodeBytes()
 	if err != nil {
