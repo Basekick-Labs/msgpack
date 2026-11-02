@@ -12,13 +12,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Basekick-Labs/msgpack/v6"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"github.com/Basekick-Labs/msgpack/v6"
 )
 
 type nameStruct struct {
 	Name string
+}
+
+type textMarshalerStruct struct {
+	Name   string
+	Number int
+}
+
+func (s *textMarshalerStruct) MarshalText() ([]byte, error) {
+	return []byte(s.Name), nil
+}
+
+func (s *textMarshalerStruct) UnmarshalText(data []byte) error {
+	s.Name = string(data)
+	return nil
 }
 
 type MsgpackTest struct {
@@ -37,6 +51,28 @@ func (t *MsgpackTest) SetupTest() {
 
 func TestMsgpackTestSuite(t *testing.T) {
 	suite.Run(t, new(MsgpackTest))
+}
+
+func (t *MsgpackTest) TestTextMarshalerCanBeDisabled() {
+	in := textMarshalerStruct{Name: "alice", Number: 42}
+
+	data, err := msgpack.Marshal(in)
+	t.Require().NoError(err)
+	var textOut textMarshalerStruct
+	t.Require().NoError(msgpack.Unmarshal(data, &textOut))
+	t.Equal("alice", textOut.Name)
+	t.Zero(textOut.Number)
+
+	var encoded bytes.Buffer
+	enc := msgpack.NewEncoder(&encoded)
+	enc.UseTextMarshaler(false)
+	t.Require().NoError(enc.Encode(in))
+
+	var out textMarshalerStruct
+	dec := msgpack.NewDecoder(bytes.NewReader(encoded.Bytes()))
+	dec.UseTextUnmarshaler(false)
+	t.Require().NoError(dec.Decode(&out))
+	t.Equal(in, out)
 }
 
 func (t *MsgpackTest) TestDecodeNil() {

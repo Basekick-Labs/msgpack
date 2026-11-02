@@ -16,6 +16,7 @@ const (
 	useCompactFloatsFlag
 	useInternedStringsFlag
 	omitEmptyFlag
+	disableTextMarshalerFlag
 )
 
 type writer interface {
@@ -250,6 +251,16 @@ func (e *Encoder) UseInternedStrings(on bool) {
 		e.flags |= useInternedStringsFlag
 	} else {
 		e.flags &= ^useInternedStringsFlag
+	}
+}
+
+// UseTextMarshaler controls whether encoding.TextMarshaler is used for values
+// that implement it. It is enabled by default for compatibility.
+func (e *Encoder) UseTextMarshaler(on bool) {
+	if on {
+		e.flags &^= disableTextMarshalerFlag
+	} else {
+		e.flags |= disableTextMarshalerFlag
 	}
 }
 

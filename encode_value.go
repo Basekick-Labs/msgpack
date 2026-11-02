@@ -91,6 +91,11 @@ func _getEncoder(typ reflect.Type) encoderFunc {
 		return encodeErrorValue
 	}
 
+	return getDefaultEncoder(typ)
+}
+
+func getDefaultEncoder(typ reflect.Type) encoderFunc {
+	kind := typ.Kind()
 	switch kind {
 	case reflect.Ptr:
 		return ptrEncoderFunc(typ)
@@ -230,12 +235,21 @@ func marshalBinaryValue(e *Encoder, v reflect.Value) error {
 //------------------------------------------------------------------------------
 
 func marshalTextValueAddr(e *Encoder, v reflect.Value) error {
+	if e.flags&disableTextMarshalerFlag != 0 {
+		return getDefaultEncoder(v.Type())(e, v)
+	}
 	return marshalTextValue(e, ensureAddr(v))
 }
 
 func marshalTextValue(e *Encoder, v reflect.Value) error {
 	if nilable(v.Kind()) && v.IsNil() {
 		return e.EncodeNil()
+	}
+	if e.flags&disableTextMarshalerFlag != 0 {
+		if v.Kind() == reflect.Ptr {
+			return getDefaultEncoder(v.Elem().Type())(e, v.Elem())
+		}
+		return getDefaultEncoder(v.Type())(e, v)
 	}
 
 	marshaler := v.Interface().(encoding.TextMarshaler)

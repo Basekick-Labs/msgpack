@@ -24,6 +24,7 @@ const (
 	disallowUnknownFieldsFlag
 	usePreallocateValues
 	disableAllocLimitFlag
+	disableTextUnmarshalerFlag
 )
 
 type bufReader interface {
@@ -220,6 +221,16 @@ func (d *Decoder) UseInternedStrings(on bool) {
 		d.flags |= useInternedStringsFlag
 	} else {
 		d.flags &= ^useInternedStringsFlag
+	}
+}
+
+// UseTextUnmarshaler controls whether encoding.TextUnmarshaler is used for
+// values that implement it. It is enabled by default for compatibility.
+func (d *Decoder) UseTextUnmarshaler(on bool) {
+	if on {
+		d.flags &^= disableTextUnmarshalerFlag
+	} else {
+		d.flags |= disableTextUnmarshalerFlag
 	}
 }
 

@@ -110,6 +110,11 @@ func _getDecoder(typ reflect.Type) decoderFunc {
 		}
 	}
 
+	return getDefaultDecoder(typ)
+}
+
+func getDefaultDecoder(typ reflect.Type) decoderFunc {
+	kind := typ.Kind()
 	switch kind {
 	case reflect.Ptr:
 		return ptrValueDecoder(typ)
@@ -274,7 +279,7 @@ func unmarshalBinaryOrTextValue(d *Decoder, v reflect.Value) error {
 	if err != nil {
 		return err
 	}
-	if msgpcode.IsString(c) {
+	if msgpcode.IsString(c) && d.flags&disableTextUnmarshalerFlag == 0 {
 		return unmarshalTextValue(d, v)
 	}
 	return unmarshalBinaryValue(d, v)
@@ -291,6 +296,15 @@ func unmarshalBinaryValue(d *Decoder, v reflect.Value) error {
 }
 
 func unmarshalTextValue(d *Decoder, v reflect.Value) error {
+	if d.flags&disableTextUnmarshalerFlag != 0 {
+		if v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+			return getDefaultDecoder(v.Elem().Type())(d, v.Elem())
+		}
+		return getDefaultDecoder(v.Type())(d, v)
+	}
 	data, err := d.DecodeBytes()
 	if err != nil {
 		return err
