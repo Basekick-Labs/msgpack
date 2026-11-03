@@ -97,9 +97,9 @@ func ExampleMarshal() {
 
 ### Struct fields
 
-Only exported struct fields are encoded and decoded. Unexported fields (those
-whose names start with a lowercase letter) are ignored, matching the behavior
-of Go's `encoding/json` package. Use an exported field, or a custom encoder,
+Unexported non-embedded struct fields are ignored during encoding and decoding.
+Exported fields of an unexported embedded struct can still be included, subject
+to the usual embedding and tag rules. Use an exported field, or a custom encoder,
 when a value needs to be included in the MessagePack representation.
 
 ## Contributors
