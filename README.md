@@ -31,8 +31,9 @@ See [CHANGELOG.md](CHANGELOG.md) for full details and the [v6.0.0 release](https
 ## Features
 
 - Primitives, arrays, maps, structs, time.Time and interface{}.
-- Struct fields that are not exported (their names start with a lowercase letter) are
-  ignored during encoding and decoding, just like `encoding/json`.
+- Unexported non-embedded struct fields are ignored during encoding and decoding.
+  Exported fields of an unexported embedded struct can still be included, subject
+  to the usual embedding and tag rules.
 - Appengine \*datastore.Key and datastore.Cursor.
 - [CustomEncoder]/[CustomDecoder] interfaces for custom encoding.
 - [Extensions](https://pkg.go.dev/github.com/Basekick-Labs/msgpack/v6#example-RegisterExt) to encode
