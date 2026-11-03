@@ -95,6 +95,13 @@ func ExampleMarshal() {
 }
 ```
 
+### Struct fields
+
+Unexported non-embedded struct fields are ignored during encoding and decoding.
+Exported fields of an unexported embedded struct can still be included, subject
+to the usual embedding and tag rules. Use an exported field, or a custom encoder,
+when a value needs to be included in the MessagePack representation.
+
 ## Contributors
 
 Thanks to all the people who already contributed!
